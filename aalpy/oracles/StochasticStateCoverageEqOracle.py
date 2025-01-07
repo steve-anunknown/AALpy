@@ -4,7 +4,7 @@ import collections
 from aalpy.base.Oracle import Oracle
 from aalpy.base.SUL import SUL
 
-probability_functions = ['linear', 'exponential', 'square']
+probability_functions = ['linear', 'exponential', 'square', 'random', 'user']
 
 class StochasticStateCoverageEqOracle(Oracle):
     def linear(self, x, size):
@@ -19,7 +19,7 @@ class StochasticStateCoverageEqOracle(Oracle):
         fundamental = 1 / (2 ** size - 1)
         return (2 ** x) * fundamental
 
-    def __init__(self, alphabet: list, sul: SUL, walks_per_round, walk_len, prob_function):
+    def __init__(self, alphabet: list, sul: SUL, walks_per_round, walk_len, prob_function, user=None):
         """
         This oracle uses a probability function to sample groups of states, based on their age.
 
@@ -34,29 +34,35 @@ class StochasticStateCoverageEqOracle(Oracle):
 
             walk_len: length of random walk
 
-            prob_function: either 'linear', 'square' or 'exponential'
+            prob_function: either 'linear', 'square', 'exponential' or 'random'
 
         """
         assert prob_function in probability_functions, f"Probability function must be one of {probability_functions}"
         super().__init__(alphabet, sul)
+        if prob_function == 'user':
+            assert user is not None, "User defined probability function must be provided."
+            self.prob_function = user
+        elif not prob_function == 'random':
+            self.prob_function = getattr(self, prob_function)
+        else:
+            self.prob_function = 'random'
         self.steps_per_walk = walk_len
         self.walks_per_round = walks_per_round
-        self.prob_function = getattr(self, prob_function)
         self.age_groups = collections.deque()
-
+    
     def find_cex(self, hypothesis):
         if not self.age_groups:
             self.age_groups.extend([[s for s in hypothesis.states]])
-
-        new = []
-        for state in hypothesis.states:
-            if not any(state.state_id in p for p in self.age_groups):
-                new.append(state)
-        self.age_groups.extend([new])
-
-        n = len(self.age_groups)
-        probabilities = [self.prob_function(i, n) for i in range(n)]
-        assert round(sum(probabilities)) == 1, "Invalid probability function. Probabilities do not sum up to 1."
+        else:
+            new = []
+            for state in hypothesis.states:
+                if not any(state in p for p in self.age_groups):
+                    new.append(state)
+            self.age_groups.extend([new])
+        if not self.prob_function == 'random':
+            n = len(self.age_groups)
+            probabilities = [self.prob_function(i, n) for i in range(n)]
+            assert round(sum(probabilities)) == 1, "Invalid probability function. Probabilities do not sum up to 1."
 
         for state in hypothesis.states:
             if state.prefix is None:
@@ -66,8 +72,11 @@ class StochasticStateCoverageEqOracle(Oracle):
             self.reset_hyp_and_sul(hypothesis)
 
             # sample according to the list of probabilities
-            group = random.choices(self.age_groups, probabilities)[0]
-            state = random.choice(group)
+            if not self.prob_function == 'random':
+                group = random.choices(self.age_groups, probabilities)[0]
+                state = random.choice(group)
+            else:
+                state = random.choice(hypothesis.states)
 
             prefix = state.prefix
             for p in prefix:
@@ -75,9 +84,9 @@ class StochasticStateCoverageEqOracle(Oracle):
                 self.sul.step(p)
                 self.num_steps += 1
 
-            suffix = ()
+            suffix = []
             for _ in range(self.steps_per_walk):
-                suffix += (random.choice(self.alphabet),)
+                suffix.append(random.choice(self.alphabet))
 
                 out_sul = self.sul.step(suffix[-1])
                 out_hyp = hypothesis.step(suffix[-1])
@@ -85,6 +94,5 @@ class StochasticStateCoverageEqOracle(Oracle):
 
                 if out_sul != out_hyp:
                     self.sul.post()
-                    return prefix + suffix
-
+                    return prefix + tuple(suffix)
         return None
