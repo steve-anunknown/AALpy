@@ -162,9 +162,9 @@ def main():
                     MODEL_RES_DIR = f"./results/{BASE_METHOD}/{prot}/{file.stem}/trial_{trial}/oracle_{i}"
                     if not os.path.exists(MODEL_RES_DIR):
                         os.makedirs(MODEL_RES_DIR)
-                    for i, hyp, cex in enumerate(zip(hyps, cexs)):
-                        save_automaton_to_file(hyp, f"{MODEL_RES_DIR}/h{i}.dot", "dot")
-                        with open(f"{MODEL_RES_DIR}/cex{i}.txt", "w") as f:
+                    for j, (hyp, cex) in enumerate(zip(hyps, cexs)):
+                        save_automaton_to_file(hyp, f"{MODEL_RES_DIR}/h{j}.dot", "dot")
+                        with open(f"{MODEL_RES_DIR}/cex{j}.txt", "w") as f:
                             f.write(str(cex))
 
     prev = 0
