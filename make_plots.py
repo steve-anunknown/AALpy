@@ -5,6 +5,27 @@ import matplotlib.pyplot as plt
 
 import argparse
 
+def draw_plots(data, results_dir):
+    for score in data.columns:
+        for zoom in [False, True]:
+            plt.figure(figsize=(8, 6))
+            sns.barplot(
+                x=data.index, y=data[score], palette="viridis", hue=data.index
+            )
+            plt.title(
+                f'{score} Scores{"" if not zoom else " (zoomed)"}', fontsize=16
+            )
+            plt.xlabel("Oracle", fontsize=12)
+            plt.ylabel("Score", fontsize=12)
+            if zoom:
+                if not data[score].max() == data[score].min():
+                    maxdiff = data[score].max() - data[score].min()
+                    plt.ylim(data[score].min() - 0.1 * maxdiff, data[score].max() + 0.1 * maxdiff)
+            plt.tight_layout()
+            name = f'{score.lower()}_scores{"" if not zoom else "_zoomed"}'
+            plt.savefig(f"{results_dir}/{name}.svg", format="svg")
+            plt.close()
+
 def make_plots(base_method, results_dir, protocols):
     if base_method == "state_coverage":
         oracles = ["Random", "Linear", "Quadratic", "Exponential", "Inverse"]
@@ -19,6 +40,14 @@ def make_plots(base_method, results_dir, protocols):
     oracles = oracles if base_method == "all" else [oracles]
     methods = ["state_coverage", "wmethod"] if base_method == "all" else [base_method]
     for method, orcs in zip(methods, oracles):
+        if protocols == ["combined"]:
+            s1_scores = np.load(f"{results_dir}/{method}/eq_queries_s1_scores.npy")
+            s2_scores = np.load(f"{results_dir}/{method}/eq_queries_s2_scores.npy")
+            scores = np.array([s1_scores, s2_scores]).T
+            df = pd.DataFrame(scores, columns=["S1", "S2"], index=orcs)
+            draw_plots(df, f'{results_dir}/{method}')
+            continue
+
         for protocol in protocols:
             protocol = protocol.upper()
             curdir = f"{results_dir}/{method}/{protocol}"
@@ -32,31 +61,11 @@ def make_plots(base_method, results_dir, protocols):
 
             scores = np.array([s1_scores, s2_scores]).T
             df = pd.DataFrame(scores, columns=["S1", "S2"], index=orcs)
-
-            for score in ["S1", "S2"]:
-                for zoom in [False, True]:
-                    plt.figure(figsize=(8, 6))
-                    sns.barplot(
-                        x=df.index, y=df[score], palette="viridis", hue=df.index
-                    )
-                    plt.title(
-                        f'{score} Scores{"" if not zoom else " (zoomed)"}', fontsize=16
-                    )
-                    plt.xlabel("Method", fontsize=12)
-                    plt.ylabel("Score", fontsize=12)
-                    if zoom:
-                        maxdiff = df[score].max() - df[score].min()
-                        plt.ylim(df[score].min() - 0.1 * maxdiff, df[score].max() + 0.1 * maxdiff)
-                    plt.tight_layout()
-                    name = f'{score.lower()}_scores{"" if not zoom else "_zoomed"}'
-                    plt.savefig(f"{curdir}/{name}.svg", format="svg")
-                    plt.close()
+            draw_plots(df, curdir)
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Plotting script")
-    # Add arguments
-    # root directory of the results
     parser.add_argument(
         "-r",
         "--results_dir",
@@ -65,7 +74,6 @@ if __name__ == "__main__":
         help="Root directory of the results",
         required=True,
     )
-    # base method : either 'state_coverage' 'wmethod' or 'all'
     parser.add_argument(
         "-b",
         "--base_method",
@@ -75,12 +83,11 @@ if __name__ == "__main__":
         help="Results of base method to plot",
         required=True,
     )
-    # protocols to plot : 'tls' 'mqtt' 'tcp' 'all'
     parser.add_argument(
         "-p",
         "--protocols",
         type=str,
-        choices=["tls", "mqtt", "tcp", "all"],
+        choices=["tls", "mqtt", "tcp", "combined", "all"],
         default="all",
         help="Protocols to plot",
         required=True,
