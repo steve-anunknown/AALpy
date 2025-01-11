@@ -23,7 +23,7 @@ def draw_plots(data, results_dir):
                     plt.ylim(data[score].min() - 0.1 * maxdiff, data[score].max() + 0.1 * maxdiff)
             plt.tight_layout()
             name = f'{score.lower()}_scores{"" if not zoom else "_zoomed"}'
-            plt.savefig(f"{results_dir}/{name}.svg", format="svg")
+            plt.savefig(f"{results_dir}/{name}.pdf", format="pdf")
             plt.close()
 
 def make_plots(base_method, results_dir, protocols):
