@@ -171,15 +171,15 @@ def main():
     for prot in PROTOCOLS:
         items = FILES_PER_PROT[prot]
         np.save(
-            f"./results/{BASE_METHOD}/eq_queries_{prot}.npy",
+            f"./results/{BASE_METHOD}/{prot}/eq_queries.npy",
             EQ_QUERIES[prev : prev + items, :, :],
         )
         np.save(
-            f"./results/{BASE_METHOD}/mb_queries_{prot}.npy",
+            f"./results/{BASE_METHOD}/{prot}/mb_queries.npy",
             MB_QUERIES[prev : prev + items, :, :],
         )
         np.save(
-            f"./results/{BASE_METHOD}/failures_{prot}.npy",
+            f"./results/{BASE_METHOD}/{prot}/failures.npy",
             FAILURES[prev : prev + items, :, :],
         )
         prev += items
