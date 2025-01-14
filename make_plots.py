@@ -31,6 +31,8 @@ def make_plots(base_method, results_dir, protocols):
         oracles = ["Random", "Linear", "Quadratic", "Exponential", "Inverse"]
     elif base_method == "wmethod":
         oracles = ["Normal", "Reverse"]
+    elif base_method == "wpmethod":
+        oracles = ["Normal"] # add more later
     else:
         oracles = [
             ["Random", "Linear", "Quadratic", "Exponential", "Inverse"],
@@ -78,7 +80,7 @@ if __name__ == "__main__":
         "-b",
         "--base_method",
         type=str,
-        choices=["state_coverage", "wmethod", "all"],
+        choices=["state_coverage", "wmethod", "wpmethod", "all"],
         default="state_coverage",
         help="Results of base method to plot",
         required=True,
