@@ -12,8 +12,9 @@ from aalpy.oracles.WMethodEqOracle import (
     WMethodDiffFirstEqOracle,
     RandomWMethodEqOracle,
 )
-from aalpy.oracles import PerfectKnowledgeEqOracle
-from aalpy.oracles import StatePrefixEqOracle
+from aalpy.oracles.WpMethodEqOracle import (
+    WpMethodEqOracle,
+)
 from aalpy.oracles.StochasticStateCoverageEqOracle import (
     StochasticStateCoverageEqOracle,
 )
@@ -39,6 +40,7 @@ WALK_LEN = {"TCP": 70, "TLS": 50, "MQTT": 50}
 
 METHOD_TO_ORACLES = {
     "wmethod": 2,
+    "wpmethod": 1,
     "state_coverage": 5,
 }
 
@@ -86,13 +88,7 @@ def do_learning_experiments(model, alphabet, correct_size, prot):
     wpr = WALKS_PER_ROUND[prot]
     wl = WALK_LEN[prot]
     # initialize the oracles
-    if BASE_METHOD == "wmethod":
-        max_size = PROTOCOL_TO_MAX_MODEL_SIZE[prot]
-        eq_oracles = [
-            WMethod(alphabet, suls[0], max_size),
-            WMethodDiffFirst(alphabet, suls[1], max_size),
-        ]
-    elif BASE_METHOD == "state_coverage":
+    if BASE_METHOD == "state_coverage":
         eq_oracles = [
             StochasticRandom(alphabet, suls[0], wpr, wl),
             StochasticLinear(alphabet, suls[1], wpr, wl),
@@ -100,6 +96,15 @@ def do_learning_experiments(model, alphabet, correct_size, prot):
             StochasticExponential(alphabet, suls[3], wpr, wl),
             StochasticInverse(alphabet, suls[4], wpr, wl),
         ]
+    elif BASE_METHOD == "wmethod":
+        max_size = PROTOCOL_TO_MAX_MODEL_SIZE[prot]
+        eq_oracles = [
+            WMethod(alphabet, suls[0], max_size),
+            WMethodDiffFirst(alphabet, suls[1], max_size),
+        ]
+    elif BASE_METHOD == "wpmethod":
+        max_size = PROTOCOL_TO_MAX_MODEL_SIZE[prot]
+        eq_oracles = [ WpMethod(alphabet, suls[0], max_size) ]
     else:
         raise ValueError("Unknown base method")
 
@@ -170,16 +175,19 @@ def main():
     prev = 0
     for prot in PROTOCOLS:
         items = FILES_PER_PROT[prot]
+        MODEL_RES_DIR = f"./results/{BASE_METHOD}/{prot}"
+        if not os.path.exists(MODEL_RES_DIR):
+            os.makedirs(MODEL_RES_DIR)
         np.save(
-            f"./results/{BASE_METHOD}/{prot}/eq_queries.npy",
+            f"{MODEL_RES_DIR}/eq_queries.npy",
             EQ_QUERIES[prev : prev + items, :, :],
         )
         np.save(
-            f"./results/{BASE_METHOD}/{prot}/mb_queries.npy",
+            f"{MODEL_RES_DIR}/mb_queries.npy",
             MB_QUERIES[prev : prev + items, :, :],
         )
         np.save(
-            f"./results/{BASE_METHOD}/{prot}/failures.npy",
+            f"{MODEL_RES_DIR}/failures.npy",
             FAILURES[prev : prev + items, :, :],
         )
         prev += items
@@ -227,7 +235,7 @@ if __name__ == "__main__":
         "-b",
         "--base_method",
         type=str,
-        choices=["state_coverage", "wmethod"],
+        choices=["state_coverage", "wmethod", "wpmethod"],
         default="state_coverage",
         help="Base method to use. Can be 'state_coverage' or 'wmethod'. Defaults to 'state_coverage'.",
     )
@@ -313,6 +321,12 @@ if __name__ == "__main__":
                 super().__init__(alphabet, sul, max_model_size)
 
         class WMethodDiffFirst(WMethodDiffFirstEqOracle):
+            def __init__(self, alphabet, sul, max_model_size):
+                super().__init__(alphabet, sul, max_model_size)
+
+    elif BASE_METHOD == "wpmethod":
+        TIMES = 1
+        class WpMethod(WpMethodEqOracle):
             def __init__(self, alphabet, sul, max_model_size):
                 super().__init__(alphabet, sul, max_model_size)
 
