@@ -63,13 +63,64 @@ class WpMethodEqOracle(Oracle):
         if not hypothesis.characterization_set:
             hypothesis.characterization_set = hypothesis.compute_characterization_set()
 
-        transition_cover = set(
+        transition_cover = [
             state.prefix + (letter,)
             for state in hypothesis.states
             for letter in self.alphabet
-        )
-        state_cover = set(state.prefix for state in hypothesis.states)
-        difference = transition_cover.difference(state_cover)
+        ]
+        state_cover = [state.prefix for state in hypothesis.states]
+        difference = [el for el in transition_cover if el not in set(state_cover)]
+
+        # not really helpful but it's here
+        minimum = min(self.m + 1 - len(hypothesis.states), 3)
+        # two views of the same iterator
+        middle_1, middle_2 = tee(i_star(self.alphabet, minimum), 2)
+        # first phase State Cover * Middle * Characterization Set
+        first_phase = product(state_cover, middle_1, hypothesis.characterization_set)
+        # second phase (Transition Cover - State Cover) * Middle * Characterization Set
+        # of the state that the prefix leads to
+        second_phase = second_phase_it(hypothesis, self.alphabet, difference, middle_2)
+        test_suite = chain(first_phase, second_phase)
+        for seq in test_suite:
+            inp_seq = tuple([i for sub in seq for i in sub])
+            if inp_seq not in self.cache:
+                self.reset_hyp_and_sul(hypothesis)
+                outputs = []
+
+                for ind, letter in enumerate(inp_seq):
+                    out_hyp = hypothesis.step(letter)
+                    out_sul = self.sul.step(letter)
+                    self.num_steps += 1
+
+                    outputs.append(out_sul)
+                    if out_hyp != out_sul:
+                        self.sul.post()
+                        return inp_seq[: ind + 1]
+                self.cache.add(inp_seq)
+
+        return None
+
+class WpMethodDiffFirstEqOracle(Oracle):
+    """
+    Implements the Wp-method equivalence oracle.
+    """
+
+    def __init__(self, alphabet: list, sul: SUL, max_number_of_states):
+        super().__init__(alphabet, sul)
+        self.m = max_number_of_states
+        self.cache = set()
+
+    def find_cex(self, hypothesis):
+        if not hypothesis.characterization_set:
+            hypothesis.characterization_set = hypothesis.compute_characterization_set()
+
+        transition_cover = [
+            state.prefix + (letter,)
+            for state in reversed(hypothesis.states)
+            for letter in self.alphabet
+        ]
+        state_cover = [state.prefix for state in reversed(hypothesis.states)]
+        difference = [el for el in transition_cover if el not in set(state_cover)]
 
         # not really helpful but it's here
         minimum = min(self.m + 1 - len(hypothesis.states), 3)
