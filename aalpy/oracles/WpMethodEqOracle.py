@@ -1,6 +1,7 @@
 from aalpy.base.Oracle import Oracle
 from aalpy.base.SUL import SUL
 from itertools import product, chain, tee
+import random
 
 
 def state_characterization_set(hypothesis, alphabet, state):
@@ -104,6 +105,62 @@ class WpMethodEqOracle(Oracle):
                 self.cache.add(inp_seq)
 
         return None
+
+class RandomWpMethodEqOracle(Oracle):
+    """
+    Implements the Random Wp-Method.
+    """
+
+    def __init__(self, alphabet: list, sul: SUL, expected_length=10, min_length=1, bound=1000):
+        super().__init__(alphabet, sul)
+        self.expected_length = expected_length
+        self.min_length = min_length
+        self.bound = bound
+
+    def find_cex(self, hypothesis):
+        if not hypothesis.characterization_set:
+            hypothesis.characterization_set = hypothesis.compute_characterization_set()
+
+        state_mapping = {}
+        for state in hypothesis.states:
+            char_set = state_characterization_set(hypothesis, self.alphabet, state)
+            state_mapping[state] = char_set
+        
+        for _ in range(self.bound):
+            state = random.choice(hypothesis.states)
+            input = state.prefix
+            limit = self.min_length
+            while limit > 0 or random.random() > 1 / (self.expected_length + 1):
+                letter = random.choice(self.alphabet)
+                input += (letter,)
+                limit -= 1
+            if random.random() > 0.5:
+                # global suffix
+                if not hypothesis.characterization_set:
+                    continue
+                input += random.choice(hypothesis.characterization_set)
+            else:
+                # local suffix
+                _ = hypothesis.execute_sequence(hypothesis.initial_state, input)
+                current_state = hypothesis.current_state
+                if not state_mapping[current_state]:
+                    continue
+                input += random.choice(state_mapping[current_state])
+
+            # execute the sequence
+            self.reset_hyp_and_sul(hypothesis)
+            outputs = []
+            for ind, letter in enumerate(input):
+                out_hyp = hypothesis.step(letter)
+                out_sul = self.sul.step(letter)
+                self.num_steps += 1
+
+                outputs.append(out_sul)
+                if out_hyp != out_sul:
+                    self.sul.post()
+                    return input[: ind + 1]
+        return None
+
 
 class WpMethodDiffFirstEqOracle(Oracle):
     """
