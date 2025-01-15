@@ -32,15 +32,16 @@ def make_plots(base_method, results_dir, protocols):
     elif base_method == "wmethod":
         oracles = ["Normal", "Reverse"]
     elif base_method == "wpmethod":
-        oracles = ["Normal"] # add more later
+        oracles = ["Normal", "Reverse"] # add more later
     else:
         oracles = [
-            ["Random", "Linear", "Quadratic", "Exponential", "Inverse"],
-            ["Normal", "Reverse"],
+            ["Random", "Linear", "Quadratic", "Exponential", "Inverse"], # state_coverage
+            ["Normal", "Reverse"], # wmethod
+            ["Normal", "Reverse"], # wpmethod
         ]
     protocols = ["tls", "mqtt", "tcp"] if protocols == "all" else [protocols]
     oracles = oracles if base_method == "all" else [oracles]
-    methods = ["state_coverage", "wmethod"] if base_method == "all" else [base_method]
+    methods = ["state_coverage", "wmethod", "wpmethod"] if base_method == "all" else [base_method]
     for method, orcs in zip(methods, oracles):
         if protocols == ["combined"]:
             s1_scores = np.load(f"{results_dir}/{method}/eq_queries_s1_scores.npy")
@@ -54,7 +55,7 @@ def make_plots(base_method, results_dir, protocols):
             protocol = protocol.upper()
             curdir = f"{results_dir}/{method}/{protocol}"
             # shape of measurements is (num_models, num_runs, num_oracles)
-            measurements = np.load(f"{curdir}/eq_queries_{protocol}.npy")
+            measurements = np.load(f"{curdir}/eq_queries.npy")
             averages = np.mean(measurements, axis=1)
             s1_scores = np.sum(averages, axis=0)
 
