@@ -40,10 +40,15 @@ def second_phase_it(hyp, alph, difference, middle):
         difference: set of sequences that are in the transition cover but not in the state cover
         middle: iterator that generates all possible sequences of length upto from the given alphabet
     """
+    state_mapping = {}
     for t, mid in product(difference, middle):
         _ = hyp.execute_sequence(hyp.initial_state, t + mid)
         state = hyp.current_state
-        char_set = state_characterization_set(hyp, alph, state)
+        if state not in state_mapping:
+            char_set = state_characterization_set(hyp, alph, state)
+            state_mapping[state] = char_set
+        else:
+            char_set = state_mapping[state]
         concatenated = product([t], [mid], char_set)
         for el in concatenated:
             yield el
