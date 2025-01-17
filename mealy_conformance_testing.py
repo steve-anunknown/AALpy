@@ -45,13 +45,6 @@ METHOD_TO_ORACLES = {
     "state_coverage": 5,
 }
 
-PROTOCOL_TO_MAX_MODEL_SIZE = {
-    "TCP": 60,
-    "TLS": 10,
-    "MQTT": 20,
-}
-
-
 def process_oracle(alphabet, sul, oracle, correct_size, i):
     """
     Process the oracle and return the number of queries to the equivalence and membership oracles
@@ -98,13 +91,13 @@ def do_learning_experiments(model, alphabet, correct_size, prot):
             StochasticInverse(alphabet, suls[4], wpr, wl),
         ]
     elif BASE_METHOD == "wmethod":
-        max_size = PROTOCOL_TO_MAX_MODEL_SIZE[prot]
+        max_size = model.size + 2 # cheating but ok
         eq_oracles = [
             WMethod(alphabet, suls[0], max_size),
             WMethodDiffFirst(alphabet, suls[1], max_size),
         ]
     elif BASE_METHOD == "wpmethod":
-        max_size = PROTOCOL_TO_MAX_MODEL_SIZE[prot]
+        max_size = model.size + 2 # cheating but ok
         eq_oracles = [ WpMethod(alphabet, suls[0], max_size),
                       WpMethodDiffFirst(alphabet, suls[1], max_size) ]
     else:
