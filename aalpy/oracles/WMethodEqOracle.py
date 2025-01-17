@@ -120,8 +120,9 @@ class WMethodDiffFirstEqOracle(Oracle):
         for d in range(depth):
             middle = product(self.alphabet, repeat=d)
             for m in middle:
-                for s, c in product(cover, char_set):
-                    yield s + m + c
+                for s in cover:
+                    for c in char_set:
+                        yield s + m + c
 
     def find_cex(self, hypothesis):
         if not hypothesis.characterization_set:
@@ -138,12 +139,11 @@ class WMethodDiffFirstEqOracle(Oracle):
         for seq in self.test_suite(
             transition_cover, depth, hypothesis.characterization_set
         ):
-            inp_seq = tuple([i for sub in seq for i in sub])
-            if inp_seq not in self.cache:
+            if seq not in self.cache:
                 self.reset_hyp_and_sul(hypothesis)
                 outputs = []
 
-                for ind, letter in enumerate(inp_seq):
+                for ind, letter in enumerate(seq):
                     out_hyp = hypothesis.step(letter)
                     out_sul = self.sul.step(letter)
                     self.num_steps += 1
@@ -151,8 +151,8 @@ class WMethodDiffFirstEqOracle(Oracle):
                     outputs.append(out_sul)
                     if out_hyp != out_sul:
                         self.sul.post()
-                        return inp_seq[: ind + 1]
-                self.cache.add(inp_seq)
+                        return seq[: ind + 1]
+                self.cache.add(seq)
 
         return None
 
