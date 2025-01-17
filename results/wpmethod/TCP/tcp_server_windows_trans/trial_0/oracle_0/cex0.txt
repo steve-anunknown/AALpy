@@ -1,1 +1,1 @@
-('CLOSE', 'LISTEN', 'SYN(V,V,0)')
+('LISTEN', 'SYN(V,V,0)', 'CLOSE', 'ACK+PSH(V,V,1)', 'LISTEN', 'SYN(V,V,0)')
