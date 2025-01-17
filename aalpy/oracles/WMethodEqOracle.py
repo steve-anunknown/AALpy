@@ -47,8 +47,9 @@ class WMethodEqOracle(Oracle):
         for d in range(depth):
             middle = product(self.alphabet, repeat=d)
             for m in middle:
-                for s, c in product(cover, char_set):
-                    yield s + m + c
+                for s in cover:
+                    for c in char_set:
+                        yield s + m + c
 
     def find_cex(self, hypothesis):
 
