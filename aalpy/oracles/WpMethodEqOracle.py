@@ -1,7 +1,7 @@
+from itertools import chain, tee, product
+
 from aalpy.base.Oracle import Oracle
 from aalpy.base.SUL import SUL
-from itertools import product, chain, tee
-import random
 
 
 def state_characterization_set(hypothesis, alphabet, state):
@@ -22,37 +22,44 @@ def state_characterization_set(hypothesis, alphabet, state):
     return result
 
 
-def i_star(alph, upto):
+def first_phase_it(alphabet, state_cover, depth, char_set):
     """
-    Return an iterator that generates all possible sequences of length upto from the given alphabet.
+    Return an iterator that generates all possible sequences for the first phase of the Wp-method.
     Args:
-        alph: input alphabet
-        upto: maximum length of the sequences
+        alphabet: input alphabet
+        state_cover: list of states to cover
+        depth: maximum length of middle part
+        char_set: characterization set
     """
-    return chain(*(product(alph, repeat=i) for i in range(upto)))
+    char_set = char_set or [()]
+    for d in range(depth):
+        middle = product(alphabet, repeat=d)
+        for m in middle:
+            for s in state_cover:
+                for c in char_set:
+                    yield s + m + c
 
-
-def second_phase_it(hyp, alph, difference, middle):
+def second_phase_it(hyp, alphabet, difference, depth):
     """
     Return an iterator that generates all possible sequences for the second phase of the Wp-method.
     Args:
         hyp: hypothesis automaton
-        alph: input alphabet
+        alphabet: input alphabet
         difference: set of sequences that are in the transition cover but not in the state cover
-        middle: iterator that generates all possible sequences of length upto from the given alphabet
+        depth: maximum length of middle part
     """
     state_mapping = {}
-    for t, mid in product(difference, middle):
-        _ = hyp.execute_sequence(hyp.initial_state, t + mid)
-        state = hyp.current_state
-        if state not in state_mapping:
-            char_set = state_characterization_set(hyp, alph, state)
-            state_mapping[state] = char_set
-        else:
-            char_set = state_mapping[state]
-        concatenated = product([t], [mid], char_set)
-        for el in concatenated:
-            yield el
+    for d in range(depth):
+        middle = product(alphabet, repeat=d)
+        for mid in middle:
+            for t in difference:
+                _ = hyp.execute_sequence(hyp.initial_state, t + mid)
+                state = hyp.current_state
+                if state not in state_mapping:
+                    state_mapping[state] = state_characterization_set(hyp, alphabet, state)
+
+                for sm in state_mapping[state]:
+                    yield t + mid + sm
 
 
 class WpMethodEqOracle(Oracle):
@@ -60,7 +67,7 @@ class WpMethodEqOracle(Oracle):
     Implements the Wp-method equivalence oracle.
     """
 
-    def __init__(self, alphabet: list, sul: SUL, max_number_of_states):
+    def __init__(self, alphabet: list, sul: SUL, max_number_of_states=4):
         super().__init__(alphabet, sul)
         self.m = max_number_of_states
         self.cache = set()
@@ -69,31 +76,28 @@ class WpMethodEqOracle(Oracle):
         if not hypothesis.characterization_set:
             hypothesis.characterization_set = hypothesis.compute_characterization_set()
 
-        transition_cover = [
+        transition_cover = set(
             state.prefix + (letter,)
             for state in hypothesis.states
             for letter in self.alphabet
-        ]
-        state_cover = [state.prefix for state in hypothesis.states]
-        difference = [el for el in transition_cover if el not in set(state_cover)]
+        )
 
-        # not really helpful but it's here
-        minimum = min(self.m + 1 - len(hypothesis.states), 3)
-        # two views of the same iterator
-        middle_1, middle_2 = tee(i_star(self.alphabet, minimum), 2)
+        state_cover = set(state.prefix for state in hypothesis.states)
+        difference = transition_cover.difference(state_cover)
+        depth = self.m + 1 - len(hypothesis.states)
         # first phase State Cover * Middle * Characterization Set
-        first_phase = product(state_cover, middle_1, hypothesis.characterization_set)
+        first_phase = first_phase_it(self.alphabet, state_cover, depth, hypothesis.characterization_set)
+
         # second phase (Transition Cover - State Cover) * Middle * Characterization Set
         # of the state that the prefix leads to
-        second_phase = second_phase_it(hypothesis, self.alphabet, difference, middle_2)
+        second_phase = second_phase_it(hypothesis, self.alphabet, difference, depth)
         test_suite = chain(first_phase, second_phase)
-        for seq in test_suite:
-            inp_seq = tuple([i for sub in seq for i in sub])
-            if inp_seq not in self.cache:
-                self.reset_hyp_and_sul(hypothesis)
-                outputs = []
 
-                for ind, letter in enumerate(inp_seq):
+        for seq in test_suite:
+            if seq not in self.cache:
+                self.reset_hyp_and_sul(hypothesis)
+
+                for ind, letter in enumerate(seq):
                     out_hyp = hypothesis.step(letter)
                     out_sul = self.sul.step(letter)
                     self.num_steps += 1
