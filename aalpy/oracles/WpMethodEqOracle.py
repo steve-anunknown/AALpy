@@ -80,13 +80,13 @@ class WpMethodEqOracle(Oracle):
         if not hypothesis.characterization_set:
             hypothesis.characterization_set = hypothesis.compute_characterization_set()
 
-        transition_cover = set(
+        transition_cover = frozenset(
             state.prefix + (letter,)
             for state in hypothesis.states
             for letter in self.alphabet
         )
 
-        state_cover = set(state.prefix for state in hypothesis.states)
+        state_cover = frozenset(state.prefix for state in hypothesis.states)
         difference = transition_cover.difference(state_cover)
         depth = self.m + 1 - len(hypothesis.states)
         # first phase State Cover * Middle * Characterization Set
