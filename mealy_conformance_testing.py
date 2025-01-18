@@ -14,6 +14,7 @@ from aalpy.oracles.WMethodEqOracle import (
 )
 from aalpy.oracles.WpMethodEqOracle import (
     WpMethodEqOracle,
+    WpMethodTSDiffEqOracle,
     WpMethodDiffFirstEqOracle,
 )
 from aalpy.oracles.StochasticStateCoverageEqOracle import (
@@ -41,7 +42,7 @@ WALK_LEN = {"TCP": 70, "TLS": 50, "MQTT": 50}
 
 METHOD_TO_ORACLES = {
     "wmethod": 2,
-    "wpmethod": 2,
+    "wpmethod": 3,
     "state_coverage": 5,
 }
 
@@ -98,8 +99,11 @@ def do_learning_experiments(model, alphabet, correct_size, prot):
         ]
     elif BASE_METHOD == "wpmethod":
         max_size = model.size + 2 # cheating but ok
-        eq_oracles = [ WpMethod(alphabet, suls[0], max_size),
-                      WpMethodDiffFirst(alphabet, suls[1], max_size) ]
+        eq_oracles = [ 
+                    WpMethod(alphabet, suls[0], max_size),
+                    WpMethodDiffFirst(alphabet, suls[1], max_size),
+                    WpMethodTSDiff(alphabet, suls[2], max_size),
+                      ]
     else:
         raise ValueError("Unknown base method")
 
@@ -325,6 +329,9 @@ if __name__ == "__main__":
             def __init__(self, alphabet, sul, max_model_size):
                 super().__init__(alphabet, sul, max_model_size)
         class WpMethodDiffFirst(WpMethodDiffFirstEqOracle):
+            def __init__(self, alphabet, sul, max_model_size):
+                super().__init__(alphabet, sul, max_model_size)
+        class WpMethodTSDiff(WpMethodTSDiffEqOracle):
             def __init__(self, alphabet, sul, max_model_size):
                 super().__init__(alphabet, sul, max_model_size)
 
