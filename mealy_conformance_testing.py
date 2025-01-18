@@ -36,8 +36,9 @@ WALKS_PER_ROUND = {
     "TCP": 200000,  # tcp is large, it is learned in multiple rounds
     "TLS": 2000,  # tls is tiny, it is learned in one round
     "MQTT": 2000,  # this is also small, but it is not learned in one round
+    "DTLS": 20000, # change it later
 }
-WALK_LEN = {"TCP": 70, "TLS": 50, "MQTT": 50}
+WALK_LEN = {"TCP": 70, "TLS": 50, "MQTT": 50, "DTLS": 70}
 
 METHOD_TO_ORACLES = {
     "wmethod": 2,
@@ -129,7 +130,7 @@ def do_learning_experiments(model, alphabet, correct_size, prot):
 def main():
     ROOT = os.getcwd() + "/DotModels"
     # PROTOCOLS    = ["ASML", "TLS", "MQTT", "EMV", "TCP"]
-    PROTOCOLS = ["TLS", "MQTT", "TCP"]
+    PROTOCOLS = ["TLS", "MQTT", "TCP", "DTLS"]
     DIRS = [pathlib.Path(ROOT + "/" + prot) for prot in PROTOCOLS]
     FILES = [file for dir in DIRS for file in dir.iterdir()]
     FILES_PER_PROT = {
