@@ -117,6 +117,147 @@ class WpMethodEqOracle(Oracle):
         return None
 
 
+class WpMethodTSDiffEqOracle(Oracle):
+    """
+    Implements the Wp-method equivalence oracle, but with a twist. In each equivalence query,
+    it retains the previous test suite, calculates the current one and first executes the
+    difference between the two test suites, TS_new - TS_old.
+    """
+
+    def __init__(self, alphabet: list, sul: SUL, max_number_of_states):
+        super().__init__(alphabet, sul)
+        self.m = max_number_of_states
+        self.cache = set()
+        self.prev_hypothesis = None
+
+    def find_cex(self, hypothesis):
+        if not hypothesis.characterization_set:
+            hypothesis.characterization_set = frozenset(
+                hypothesis.compute_characterization_set()
+            )
+
+        transition_cover = frozenset(
+            state.prefix + (letter,)
+            for state in hypothesis.states
+            for letter in self.alphabet
+        )
+        state_cover = frozenset(state.prefix for state in hypothesis.states)
+
+        depth = self.m + 1 - len(hypothesis.states)
+        threshold = len(hypothesis.states) * (len(self.alphabet) ** depth) * (len(hypothesis.characterization_set))
+
+        if self.prev_hypothesis:
+            # if there is a previous hypothesis, execute the first phase test
+            # suite by using the difference of the two state coverage sets as
+            # the prefix, instead of the whole new one.
+            new = {s.state_id: s for s in hypothesis.states}
+            old = {s.state_id: s for s in self.prev_hypothesis.states}
+            new_states = [new[s] for s in new if not s in old]
+            diff_sc = [s.prefix for s in new_states]
+            if not len(new_states) == 1:
+                diff_first_phase = first_phase_it(
+                    self.alphabet, diff_sc, depth, hypothesis.characterization_set
+                )
+                count = 0
+                for seq in diff_first_phase:
+                    if count >= threshold / 5:
+                        break
+                    count += 1
+                    if seq not in self.cache:
+                        self.reset_hyp_and_sul(hypothesis)
+                        outputs = []
+                        for ind, letter in enumerate(seq):
+                            out_hyp = hypothesis.step(letter)
+                            out_sul = self.sul.step(letter)
+                            self.num_steps += 1
+
+                            outputs.append(out_sul)
+                            if out_hyp != out_sul:
+                                self.sul.post()
+                                self.prev_hypothesis = hypothesis
+                                return seq[: ind + 1]
+                        self.cache.add(seq)
+
+            self.prev_hypothesis = hypothesis
+            print("trying the normal test suite")
+
+        self.prev_hypothesis = hypothesis
+        difference = transition_cover.difference(state_cover)
+        # first phase State Cover * Middle * Characterization Set
+        first_phase = first_phase_it(
+            self.alphabet, state_cover, depth, hypothesis.characterization_set
+        )
+
+        # second phase (Transition Cover - State Cover) * Middle * Characterization Set
+        # of the state that the prefix leads to
+        second_phase = second_phase_it(hypothesis, self.alphabet, difference, depth)
+        test_suite = chain(first_phase, second_phase)
+        for seq in test_suite:
+            if seq not in self.cache:
+                self.reset_hyp_and_sul(hypothesis)
+                outputs = []
+                for ind, letter in enumerate(seq):
+                    out_hyp = hypothesis.step(letter)
+                    out_sul = self.sul.step(letter)
+                    self.num_steps += 1
+
+                    outputs.append(out_sul)
+                    if out_hyp != out_sul:
+                        self.sul.post()
+                        return seq[: ind + 1]
+                self.cache.add(seq)
+
+
+class WpMethodDiffFirstEqOracle(Oracle):
+    """
+    Implements the Wp-method equivalence oracle.
+    """
+
+    def __init__(self, alphabet: list, sul: SUL, max_number_of_states):
+        super().__init__(alphabet, sul)
+        self.m = max_number_of_states
+        self.cache = set()
+
+    def find_cex(self, hypothesis):
+        if not hypothesis.characterization_set:
+            hypothesis.characterization_set = hypothesis.compute_characterization_set()
+
+        # keep them as lists to preserver order.
+        transition_cover = [
+            state.prefix + (letter,)
+            for state in reversed(hypothesis.states)
+            for letter in self.alphabet
+        ]
+        state_cover = [state.prefix for state in reversed(hypothesis.states)]
+        difference = [el for el in transition_cover if el not in set(state_cover)]
+        depth = self.m + 1 - len(hypothesis.states)
+        # first phase State Cover * Middle * Characterization Set
+        first_phase = first_phase_it(
+            self.alphabet, state_cover, depth, hypothesis.characterization_set
+        )
+        # second phase (Transition Cover - State Cover) * Middle * Characterization Set
+        # of the state that the prefix leads to
+        second_phase = second_phase_it(hypothesis, self.alphabet, difference, depth)
+        test_suite = chain(first_phase, second_phase)
+        for seq in test_suite:
+            if seq not in self.cache:
+                self.reset_hyp_and_sul(hypothesis)
+                outputs = []
+
+                for ind, letter in enumerate(seq):
+                    out_hyp = hypothesis.step(letter)
+                    out_sul = self.sul.step(letter)
+                    self.num_steps += 1
+
+                    outputs.append(out_sul)
+                    if out_hyp != out_sul:
+                        self.sul.post()
+                        return seq[: ind + 1]
+                self.cache.add(seq)
+
+        return None
+
+
 class RandomWpMethodEqOracle(Oracle):
     """
     Implements the Random Wp-Method.
@@ -172,54 +313,4 @@ class RandomWpMethodEqOracle(Oracle):
                 if out_hyp != out_sul:
                     self.sul.post()
                     return input[: ind + 1]
-        return None
-
-
-class WpMethodDiffFirstEqOracle(Oracle):
-    """
-    Implements the Wp-method equivalence oracle.
-    """
-
-    def __init__(self, alphabet: list, sul: SUL, max_number_of_states):
-        super().__init__(alphabet, sul)
-        self.m = max_number_of_states
-        self.cache = set()
-
-    def find_cex(self, hypothesis):
-        if not hypothesis.characterization_set:
-            hypothesis.characterization_set = hypothesis.compute_characterization_set()
-
-        # keep them as lists to preserver order.
-        transition_cover = [
-            state.prefix + (letter,)
-            for state in reversed(hypothesis.states)
-            for letter in self.alphabet
-        ]
-        state_cover = [state.prefix for state in reversed(hypothesis.states)]
-        difference = [el for el in transition_cover if el not in set(state_cover)]
-        depth = self.m + 1 - len(hypothesis.states)
-        # first phase State Cover * Middle * Characterization Set
-        first_phase = first_phase_it(
-            self.alphabet, state_cover, depth, hypothesis.characterization_set
-        )
-        # second phase (Transition Cover - State Cover) * Middle * Characterization Set
-        # of the state that the prefix leads to
-        second_phase = second_phase_it(hypothesis, self.alphabet, difference, depth)
-        test_suite = chain(first_phase, second_phase)
-        for seq in test_suite:
-            if seq not in self.cache:
-                self.reset_hyp_and_sul(hypothesis)
-                outputs = []
-
-                for ind, letter in enumerate(seq):
-                    out_hyp = hypothesis.step(letter)
-                    out_sul = self.sul.step(letter)
-                    self.num_steps += 1
-
-                    outputs.append(out_sul)
-                    if out_hyp != out_sul:
-                        self.sul.post()
-                        return seq[: ind + 1]
-                self.cache.add(seq)
-
         return None
