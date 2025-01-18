@@ -5,6 +5,8 @@ import matplotlib.pyplot as plt
 
 import argparse
 
+PROTOCOLS = ["tls", "mqtt", "tcp", "dtls"]
+
 def draw_plots(data, results_dir):
     for score in data.columns:
         for zoom in [False, True]:
@@ -39,7 +41,7 @@ def make_plots(base_method, results_dir, protocols):
             ["Normal", "Reverse"], # wmethod
             ["Normal", "Reverse", "TSDiff"], # wpmethod
         ]
-    protocols = ["tls", "mqtt", "tcp"] if protocols == "all" else [protocols]
+    protocols = PROTOCOLS if protocols == "all" else [protocols]
     oracles = oracles if base_method == "all" else [oracles]
     methods = ["state_coverage", "wmethod", "wpmethod"] if base_method == "all" else [base_method]
     for method, orcs in zip(methods, oracles):
@@ -90,7 +92,7 @@ if __name__ == "__main__":
         "-p",
         "--protocols",
         type=str,
-        choices=["tls", "mqtt", "tcp", "combined", "all"],
+        choices= PROTOCOLS + ["combined", "all"],
         default="all",
         help="Protocols to plot",
         required=True,
