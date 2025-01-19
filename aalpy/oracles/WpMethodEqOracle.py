@@ -136,11 +136,6 @@ class WpMethodTSDiffEqOracle(Oracle):
                 hypothesis.compute_characterization_set()
             )
 
-        transition_cover = frozenset(
-            state.prefix + (letter,)
-            for state in hypothesis.states
-            for letter in self.alphabet
-        )
         depth = self.m + 1 - len(hypothesis.states)
 
         if self.prev_hypothesis:
@@ -148,7 +143,6 @@ class WpMethodTSDiffEqOracle(Oracle):
             # suite by using the difference of the two state coverage sets as
             # the prefix, instead of the whole new one.
             state_cover = [state.prefix for state in hypothesis.states]
-            difference = transition_cover.difference(state_cover)
     
             new = {s.state_id: s for s in hypothesis.states}
             old = {s.state_id: s for s in self.prev_hypothesis.states}
@@ -158,8 +152,19 @@ class WpMethodTSDiffEqOracle(Oracle):
             # remove the new states and prepend them
             state_cover = [s for s in state_cover if s not in diff_sc]
             state_cover = diff_sc + state_cover 
+            transition_cover = frozenset(
+                prefix + (letter,)
+                for prefix in state_cover
+                for letter in self.alphabet
+            )
+            difference = transition_cover.difference(state_cover)
         else:
             state_cover = frozenset(state.prefix for state in hypothesis.states)
+            transition_cover = frozenset(
+                state.prefix + (letter,)
+                for state in hypothesis.states
+                for letter in self.alphabet
+            )
             difference = transition_cover.difference(state_cover)
 
         self.prev_hypothesis = hypothesis
@@ -294,3 +299,4 @@ class RandomWpMethodEqOracle(Oracle):
                     self.sul.post()
                     return input[: ind + 1]
         return None
+
