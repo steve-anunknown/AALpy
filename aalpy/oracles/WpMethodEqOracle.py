@@ -141,48 +141,28 @@ class WpMethodTSDiffEqOracle(Oracle):
             for state in hypothesis.states
             for letter in self.alphabet
         )
-        state_cover = frozenset(state.prefix for state in hypothesis.states)
-
         depth = self.m + 1 - len(hypothesis.states)
-        threshold = len(hypothesis.states) * (len(self.alphabet) ** depth) * (len(hypothesis.characterization_set))
 
         if self.prev_hypothesis:
             # if there is a previous hypothesis, execute the first phase test
             # suite by using the difference of the two state coverage sets as
             # the prefix, instead of the whole new one.
+            state_cover = [state.prefix for state in hypothesis.states]
+            difference = transition_cover.difference(state_cover)
+    
             new = {s.state_id: s for s in hypothesis.states}
             old = {s.state_id: s for s in self.prev_hypothesis.states}
             new_states = [new[s] for s in new if not s in old]
             diff_sc = [s.prefix for s in new_states]
-            if not len(new_states) == 1:
-                diff_first_phase = first_phase_it(
-                    self.alphabet, diff_sc, depth, hypothesis.characterization_set
-                )
-                count = 0
-                for seq in diff_first_phase:
-                    if count >= threshold / 5:
-                        break
-                    count += 1
-                    if seq not in self.cache:
-                        self.reset_hyp_and_sul(hypothesis)
-                        outputs = []
-                        for ind, letter in enumerate(seq):
-                            out_hyp = hypothesis.step(letter)
-                            out_sul = self.sul.step(letter)
-                            self.num_steps += 1
 
-                            outputs.append(out_sul)
-                            if out_hyp != out_sul:
-                                self.sul.post()
-                                self.prev_hypothesis = hypothesis
-                                return seq[: ind + 1]
-                        self.cache.add(seq)
-
-            self.prev_hypothesis = hypothesis
-            print("trying the normal test suite")
+            # remove the new states and prepend them
+            state_cover = [s for s in state_cover if s not in diff_sc]
+            state_cover = diff_sc + state_cover 
+        else:
+            state_cover = frozenset(state.prefix for state in hypothesis.states)
+            difference = transition_cover.difference(state_cover)
 
         self.prev_hypothesis = hypothesis
-        difference = transition_cover.difference(state_cover)
         # first phase State Cover * Middle * Characterization Set
         first_phase = first_phase_it(
             self.alphabet, state_cover, depth, hypothesis.characterization_set
