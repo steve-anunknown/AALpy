@@ -36,7 +36,7 @@ WALKS_PER_ROUND = {
     "TCP": 200000,  # tcp is large, it is learned in multiple rounds
     "TLS": 2000,  # tls is tiny, it is learned in one round
     "MQTT": 2000,  # this is also small, but it is not learned in one round
-    "DTLS": 20000, # change it later
+    "DTLS": 200000, # change it later
 }
 WALK_LEN = {"TCP": 70, "TLS": 50, "MQTT": 50, "DTLS": 70}
 
@@ -58,7 +58,7 @@ def process_oracle(alphabet, sul, oracle, correct_size, i):
         correct_size: correct size of the model
         i: index of the oracle
     """
-    _, info = run_Lstar(alphabet, sul, oracle, "mealy", return_data=True, print_level=2)
+    _, info = run_Lstar(alphabet, sul, oracle, "mealy", cache_and_non_det_check=False, return_data=True, print_level=2)
     # _, info = run_KV(alphabet, sul, oracle, 'mealy', return_data=True, print_level=0)
     return (
         i,
@@ -115,7 +115,7 @@ def do_learning_experiments(model, alphabet, correct_size, prot):
             (alphabet, sul, oracle, correct_size, i)
             for i, (sul, oracle) in enumerate(zip(suls, eq_oracles))
         ]
-        workers = min(mp.cpu_count(), NUM_ORACLES)
+        workers = mp.cpu_count() - 1
         with mp.Pool(workers) as pool:
             results = pool.starmap(process_oracle, tasks)
     else:
