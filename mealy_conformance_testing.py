@@ -15,6 +15,7 @@ from aalpy.oracles.WMethodEqOracle import (
 from aalpy.oracles.WpMethodEqOracle import (
     WpMethodEqOracle,
     WpMethodDiffFirstEqOracle,
+    WpMethodTSDiffEqOracle,
 )
 from aalpy.oracles.StochasticStateCoverageEqOracle import (
     StochasticStateCoverageEqOracle,
@@ -46,9 +47,10 @@ WALK_LEN = {"TCP": 50, "TLS": 10, "MQTT": 20, "DTLS": 20}
 
 METHOD_TO_ORACLES = {
     "wmethod": 2,
-    "wpmethod": 2,
+    "wpmethod": 3,
     "state_coverage": 5,
 }
+
 
 def process_oracle(alphabet, sul, oracle, correct_size, i):
     """
@@ -62,7 +64,15 @@ def process_oracle(alphabet, sul, oracle, correct_size, i):
         correct_size: correct size of the model
         i: index of the oracle
     """
-    _, info = run_Lstar(alphabet, sul, oracle, "mealy", cache_and_non_det_check=False, return_data=True, print_level=2)
+    _, info = run_Lstar(
+        alphabet,
+        sul,
+        oracle,
+        "mealy",
+        cache_and_non_det_check=False,
+        return_data=True,
+        print_level=2,
+    )
     # _, info = run_KV(alphabet, sul, oracle, 'mealy', return_data=True, print_level=0)
     return (
         i,
@@ -113,15 +123,18 @@ def do_learning_experiments(model, alphabet, correct_size, prot):
             StochasticInverse(alphabet, suls[4], wpr, wl),
         ]
     elif BASE_METHOD == "wmethod":
-        max_size = model.size + 2 # cheating but ok
+        max_size = model.size + 2  # cheating but ok
         eq_oracles = [
             WMethod(alphabet, suls[0], max_size),
             WMethodDiffFirst(alphabet, suls[1], max_size),
         ]
     elif BASE_METHOD == "wpmethod":
-        max_size = model.size + 2 # cheating but ok
-        eq_oracles = [ WpMethod(alphabet, suls[0], max_size),
-                      WpMethodDiffFirst(alphabet, suls[1], max_size) ]
+        max_size = model.size + 2  # cheating but ok
+        eq_oracles = [
+            WpMethod(alphabet, suls[0], max_size),
+            WpMethodDiffFirst(alphabet, suls[1], max_size),
+            WpMethodTSDiff(alphabet, suls[2], max_size),
+        ]
     else:
         raise ValueError("Unknown base method")
 
@@ -343,10 +356,16 @@ if __name__ == "__main__":
 
     elif BASE_METHOD == "wpmethod":
         TIMES = 1
+
         class WpMethod(WpMethodEqOracle):
             def __init__(self, alphabet, sul, max_model_size):
                 super().__init__(alphabet, sul, max_model_size)
+
         class WpMethodDiffFirst(WpMethodDiffFirstEqOracle):
+            def __init__(self, alphabet, sul, max_model_size):
+                super().__init__(alphabet, sul, max_model_size)
+
+        class WpMethodTSDiff(WpMethodTSDiffEqOracle):
             def __init__(self, alphabet, sul, max_model_size):
                 super().__init__(alphabet, sul, max_model_size)
 
