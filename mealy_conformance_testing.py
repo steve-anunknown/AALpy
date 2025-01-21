@@ -33,12 +33,16 @@ np.set_printoptions(suppress=True)
 # pd.options.display.float_format = '{:.3f}'.format
 
 WALKS_PER_ROUND = {
-    "TCP": 200000,  # tcp is large, it is learned in multiple rounds
-    "TLS": 2000,  # tls is tiny, it is learned in one round
-    "MQTT": 2000,  # this is also small, but it is not learned in one round
-    "DTLS": 200000, # change it later
+    "TCP_SMALL": 10000,
+    "TCP_MEDIUM": 200000,
+    "TCP_LARGE": 750000,
+    "TLS": 2000,
+    "MQTT": 5000,
+    "DTLS_SMALL": 20000,
+    "DTLS_MEDIUM": 100000,
+    "DTLS_LARGE": 400000,
 }
-WALK_LEN = {"TCP": 70, "TLS": 50, "MQTT": 50, "DTLS": 70}
+WALK_LEN = {"TCP": 50, "TLS": 10, "MQTT": 20, "DTLS": 20}
 
 METHOD_TO_ORACLES = {
     "wmethod": 2,
@@ -80,10 +84,27 @@ def do_learning_experiments(model, alphabet, correct_size, prot):
     """
     # create a copy of the SUL for each oracle
     suls = [AutomatonSUL(model) for _ in range(NUM_ORACLES)]
-    wpr = WALKS_PER_ROUND[prot]
-    wl = WALK_LEN[prot]
     # initialize the oracles
     if BASE_METHOD == "state_coverage":
+        wl = WALK_LEN[prot]
+        if prot == "DTLS":
+            if model.size <= 17:
+                prot_prime = prot + "_SMALL"
+            elif model.size <= 66:
+                prot_prime = prot + "_MEDIUM"
+            else:
+                prot_prime = prot + "_LARGE"
+            wpr = WALKS_PER_ROUND[prot_prime]
+        elif prot == "TCP":
+            if model.size <= 15:
+                prot_prime = prot + "_SMALL"
+            elif model.size <= 38:
+                prot_prime = prot + "_MEDIUM"
+            else:
+                prot_prime = prot + "_LARGE"
+            wpr = WALKS_PER_ROUND[prot_prime]
+        else:
+            wpr = WALKS_PER_ROUND[prot]
         eq_oracles = [
             StochasticRandom(alphabet, suls[0], wpr, wl),
             StochasticLinear(alphabet, suls[1], wpr, wl),
