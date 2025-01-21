@@ -116,6 +116,79 @@ class WpMethodEqOracle(Oracle):
 
         return None
 
+class WpMethodTSDiffEqOracle(Oracle):
+    """
+    Implements the Wp-method equivalence oracle, but with a twist. In each equivalence query,
+    it retains the previous test suite, calculates the current one and first executes the
+    difference between the two test suites, TS_new - TS_old.
+    """
+
+    def __init__(self, alphabet: list, sul: SUL, max_number_of_states):
+        super().__init__(alphabet, sul)
+        self.m = max_number_of_states
+        self.cache = set()
+        self.prev_hypothesis = None
+
+    def find_cex(self, hypothesis):
+        if not hypothesis.characterization_set:
+            hypothesis.characterization_set = frozenset(
+                hypothesis.compute_characterization_set()
+            )
+
+        depth = self.m + 1 - len(hypothesis.states)
+
+        if self.prev_hypothesis:
+            # if there is a previous hypothesis, execute the first phase test
+            # suite by using the difference of the two state coverage sets as
+            # the prefix, instead of the whole new one.
+            state_cover = [state.prefix for state in hypothesis.states]
+
+            new = {s.state_id: s for s in hypothesis.states}
+            old = {s.state_id: s for s in self.prev_hypothesis.states}
+            new_states = [new[s] for s in new if not s in old]
+            diff_sc = [s.prefix for s in new_states]
+
+            # remove the new states and prepend them
+            state_cover = [s for s in state_cover if s not in diff_sc]
+            state_cover = diff_sc + state_cover
+            transition_cover = frozenset(
+                prefix + (letter,) for prefix in state_cover for letter in self.alphabet
+            )
+            difference = transition_cover.difference(state_cover)
+        else:
+            state_cover = frozenset(state.prefix for state in hypothesis.states)
+            transition_cover = frozenset(
+                state.prefix + (letter,)
+                for state in hypothesis.states
+                for letter in self.alphabet
+            )
+            difference = transition_cover.difference(state_cover)
+
+        self.prev_hypothesis = hypothesis
+        # first phase State Cover * Middle * Characterization Set
+        first_phase = first_phase_it(
+            self.alphabet, state_cover, depth, hypothesis.characterization_set
+        )
+
+        # second phase (Transition Cover - State Cover) * Middle * Characterization Set
+        # of the state that the prefix leads to
+        second_phase = second_phase_it(hypothesis, self.alphabet, difference, depth)
+        test_suite = chain(first_phase, second_phase)
+        for seq in test_suite:
+            if seq not in self.cache:
+                self.reset_hyp_and_sul(hypothesis)
+                outputs = []
+                for ind, letter in enumerate(seq):
+                    out_hyp = hypothesis.step(letter)
+                    out_sul = self.sul.step(letter)
+                    self.num_steps += 1
+
+                    outputs.append(out_sul)
+                    if out_hyp != out_sul:
+                        self.sul.post()
+                        return seq[: ind + 1]
+                self.cache.add(seq)
+
 
 class RandomWpMethodEqOracle(Oracle):
     """
