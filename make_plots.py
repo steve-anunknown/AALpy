@@ -7,26 +7,27 @@ import argparse
 
 PROTOCOLS = ["tls", "mqtt", "tcp", "dtls"]
 
+
 def draw_plots(data, results_dir):
     for score in data.columns:
         for zoom in [False, True]:
             plt.figure(figsize=(8, 6))
-            sns.barplot(
-                x=data.index, y=data[score], palette="viridis", hue=data.index
-            )
-            plt.title(
-                f'{score} Scores{"" if not zoom else " (zoomed)"}', fontsize=16
-            )
+            sns.barplot(x=data.index, y=data[score], palette="viridis", hue=data.index)
+            plt.title(f'{score} Scores{"" if not zoom else " (zoomed)"}', fontsize=16)
             plt.xlabel("Oracle", fontsize=12)
             plt.ylabel("Score", fontsize=12)
             if zoom:
                 if not data[score].max() == data[score].min():
                     maxdiff = data[score].max() - data[score].min()
-                    plt.ylim(data[score].min() - 0.1 * maxdiff, data[score].max() + 0.1 * maxdiff)
+                    plt.ylim(
+                        data[score].min() - 0.1 * maxdiff,
+                        data[score].max() + 0.1 * maxdiff,
+                    )
             plt.tight_layout()
             name = f'{score.lower()}_scores{"" if not zoom else "_zoomed"}'
             plt.savefig(f"{results_dir}/{name}.pdf", format="pdf")
             plt.close()
+
 
 def make_plots(base_method, results_dir, protocols):
     if base_method == "state_coverage":
@@ -34,25 +35,43 @@ def make_plots(base_method, results_dir, protocols):
     elif base_method == "wmethod":
         oracles = ["Normal", "Reverse"]
     elif base_method == "wpmethod":
-        oracles = ["Normal", "Reverse", "TSDiff"] # add more later
+        oracles = ["Normal", "Reverse", "TSDiff"]  # add more later
     else:
         oracles = [
-            ["Random", "Linear", "Quadratic", "Exponential", "Inverse"], # state_coverage
-            ["Normal", "Reverse"], # wmethod
-            ["Normal", "Reverse", "TSDiff"], # wpmethod
+            [
+                "Random",
+                "Linear",
+                "Quadratic",
+                "Exponential",
+                "Inverse",
+            ],  # state_coverage
+            ["Normal", "Reverse"],  # wmethod
+            ["Normal", "Reverse", "TSDiff"],  # wpmethod
         ]
     protocols = PROTOCOLS if protocols == "all" else [protocols]
     oracles = oracles if base_method == "all" else [oracles]
-    methods = ["state_coverage", "wmethod", "wpmethod"] if base_method == "all" else [base_method]
+    methods = (
+        ["state_coverage", "wmethod", "wpmethod"]
+        if base_method == "all"
+        else [base_method]
+    )
     for method, orcs in zip(methods, oracles):
         if protocols == ["combined"]:
             s1_scores = np.load(f"{results_dir}/{method}/eq_queries_s1_scores.npy")
             s2_scores = np.load(f"{results_dir}/{method}/eq_queries_s2_scores.npy")
             scores = np.array([s1_scores, s2_scores]).T
             df = pd.DataFrame(scores, columns=["S1", "S2"], index=orcs)
-            draw_plots(df, f'{results_dir}/{method}')
+            draw_plots(df, f"{results_dir}/{method}")
             continue
 
+        total = 0
+        for protocol in protocols:
+            protocol = protocol.upper()
+            curdir = f"{results_dir}/{method}/{protocol}"
+            measurements = np.load(f"{curdir}/eq_queries.npy")
+            total += measurements.shape[0]
+
+        s2_weighted = np.zeros((len(orcs),))
         for protocol in protocols:
             protocol = protocol.upper()
             curdir = f"{results_dir}/{method}/{protocol}"
@@ -67,6 +86,21 @@ def make_plots(base_method, results_dir, protocols):
             scores = np.array([s1_scores, s2_scores]).T
             df = pd.DataFrame(scores, columns=["S1", "S2"], index=orcs)
             draw_plots(df, curdir)
+            s2_weighted += s2_scores * measurements.shape[0] / total
+
+        plt.figure(figsize=(8, 6))
+        sns.barplot(x=df.index, y=s2_weighted, palette="viridis", hue=df.index)
+        plt.title("weighted S2 score")
+        plt.xlabel("Oracle", fontsize=12)
+        plt.ylabel("Score", fontsize=12)
+        if not s2_weighted.max() == s2_weighted.min():
+            maxdiff = s2_weighted.max() - s2_weighted.min()
+            plt.ylim(
+                s2_weighted.min() - 0.1 * maxdiff, s2_weighted.max() + 0.1 * maxdiff
+            )
+        plt.tight_layout()
+        plt.savefig(f"{results_dir}/{method}/s2_scores_weighted.pdf", format="pdf")
+        plt.close()
 
 
 if __name__ == "__main__":
@@ -92,7 +126,7 @@ if __name__ == "__main__":
         "-p",
         "--protocols",
         type=str,
-        choices= PROTOCOLS + ["combined", "all"],
+        choices=PROTOCOLS + ["combined", "all"],
         default="all",
         help="Protocols to plot",
         required=True,
