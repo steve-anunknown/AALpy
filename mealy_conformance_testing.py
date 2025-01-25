@@ -34,11 +34,11 @@ np.set_printoptions(suppress=True)
 # pd.options.display.float_format = '{:.3f}'.format
 
 WALKS_PER_ROUND = {
-    "TCP_SMALL": 10000,
+    "TCP_SMALL": 40000,
     "TCP_MEDIUM": 200000,
     "TCP_LARGE": 750000,
-    "TLS": 2000,
-    "MQTT": 5000,
+    "TLS": 1000,
+    "MQTT": 1000,
     "DTLS_SMALL": 20000,
     "DTLS_MEDIUM": 100000,
     "DTLS_LARGE": 400000,
