@@ -35,15 +35,18 @@ def make_plots(base_method, results_dir, protocols):
         oracles = ["Normal", "Reverse"]
     elif base_method == "wpmethod":
         oracles = ["Normal", "Reverse", "TSDiff"] # add more later
+    elif base_method == "rwpmethod":
+        oracles = ["Normal", "New First"]
     else:
         oracles = [
             ["Random", "Linear", "Quadratic", "Exponential", "Inverse"], # state_coverage
             ["Normal", "Reverse"], # wmethod
             ["Normal", "Reverse", "TSDiff"], # wpmethod
+            ["Normal", "New First"], # rwpmethod
         ]
     protocols = PROTOCOLS if protocols == "all" else [protocols]
     oracles = oracles if base_method == "all" else [oracles]
-    methods = ["state_coverage", "wmethod", "wpmethod"] if base_method == "all" else [base_method]
+    methods = ["state_coverage", "wmethod", "wpmethod", "rwpmethod"] if base_method == "all" else [base_method]
     for method, orcs in zip(methods, oracles):
         if protocols == ["combined"]:
             s1_scores = np.load(f"{results_dir}/{method}/eq_queries_s1_scores.npy")
@@ -83,7 +86,7 @@ if __name__ == "__main__":
         "-b",
         "--base_method",
         type=str,
-        choices=["state_coverage", "wmethod", "wpmethod", "all"],
+        choices=["state_coverage", "wmethod", "wpmethod", "rwpmethod", "all"],
         default="state_coverage",
         help="Results of base method to plot",
         required=True,

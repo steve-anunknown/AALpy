@@ -16,6 +16,8 @@ from aalpy.oracles.WpMethodEqOracle import (
     WpMethodEqOracle,
     WpMethodDiffFirstEqOracle,
     WpMethodTSDiffEqOracle,
+    RandomWpMethodEqOracle,
+    RandomWpMethodDiffFirstEqOracle,
 )
 from aalpy.oracles.StochasticStateCoverageEqOracle import (
     StochasticStateCoverageEqOracle,
@@ -48,6 +50,7 @@ WALK_LEN = {"TCP": 50, "TLS": 10, "MQTT": 20, "DTLS": 20}
 METHOD_TO_ORACLES = {
     "wmethod": 2,
     "wpmethod": 3,
+    "rwpmethod": 2,
     "state_coverage": 5,
 }
 
@@ -134,6 +137,15 @@ def do_learning_experiments(model, alphabet, correct_size, prot):
             WpMethod(alphabet, suls[0], max_size),
             WpMethodDiffFirst(alphabet, suls[1], max_size),
             WpMethodTSDiff(alphabet, suls[2], max_size),
+        ]
+    elif BASE_METHOD == "rwpmethod":
+        # similar to max queries required by wpmethod
+        wpr = 500000 if prot == "TCP" or prot == "DTLS" else wpr
+        eq_oracles = [
+            RandomWp(alphabet, suls[0], wl, 1, wpr),
+            RandomWpDiffFirst(
+                alphabet, suls[1], wl, 1, wpr
+            ),
         ]
     else:
         raise ValueError("Unknown base method")
@@ -265,9 +277,9 @@ if __name__ == "__main__":
         "-b",
         "--base_method",
         type=str,
-        choices=["state_coverage", "wmethod", "wpmethod"],
+        choices=["state_coverage", "wmethod", "wpmethod", "rwpmethod"],
         default="state_coverage",
-        help="Base method to use. Can be 'state_coverage' or 'wmethod'. Defaults to 'state_coverage'.",
+        help="Base method to use. Defaults to 'state_coverage'.",
     )
 
     parser.add_argument(
@@ -368,5 +380,19 @@ if __name__ == "__main__":
         class WpMethodTSDiff(WpMethodTSDiffEqOracle):
             def __init__(self, alphabet, sul, max_model_size):
                 super().__init__(alphabet, sul, max_model_size)
+
+    elif BASE_METHOD == "rwpmethod":
+
+        class RandomWp(RandomWpMethodEqOracle):
+            def __init__(
+                self, alphabet, sul, expected_length=10, min_length=1, bound=1000
+            ):
+                super().__init__(alphabet, sul, expected_length, min_length, bound)
+
+        class RandomWpDiffFirst(RandomWpMethodDiffFirstEqOracle):
+            def __init__(
+                self, alphabet, sul, expected_length=10, min_length=1, bound=1000
+            ):
+                super().__init__(alphabet, sul, expected_length, min_length, bound)
 
     main()

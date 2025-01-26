@@ -50,3 +50,17 @@ class Oracle(ABC):
         self.sul.post()
         self.sul.pre()
         self.num_queries += 1
+
+    def execute_test_case(self, hypothesis, input):
+        self.reset_hyp_and_sul(hypothesis)
+        outputs = []
+        for ind, letter in enumerate(input):
+            out_hyp = hypothesis.step(letter)
+            out_sul = self.sul.step(letter)
+            self.num_steps += 1
+
+            outputs.append(out_sul)
+            if out_hyp != out_sul:
+                self.sul.post()
+                return input[: ind + 1]
+        return None

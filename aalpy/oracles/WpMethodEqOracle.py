@@ -207,10 +207,7 @@ class RandomWpMethodEqOracle(Oracle):
         if not hypothesis.characterization_set:
             hypothesis.characterization_set = hypothesis.compute_characterization_set()
 
-        state_mapping = {}
-        for state in hypothesis.states:
-            char_set = state_characterization_set(hypothesis, self.alphabet, state)
-            state_mapping[state] = char_set
+        state_mapping = {s : state_characterization_set(hypothesis, self.alphabet, s) for s in hypothesis.states}
 
         for _ in range(self.bound):
             state = random.choice(hypothesis.states)
@@ -221,32 +218,68 @@ class RandomWpMethodEqOracle(Oracle):
                 input += (letter,)
                 limit -= 1
             if random.random() > 0.5:
-                # global suffix
-                if not hypothesis.characterization_set:
-                    continue
+                # global suffix with characterization_set
                 input += random.choice(hypothesis.characterization_set)
             else:
                 # local suffix
                 _ = hypothesis.execute_sequence(hypothesis.initial_state, input)
-                current_state = hypothesis.current_state
-                if not state_mapping[current_state]:
-                    continue
-                input += random.choice(state_mapping[current_state])
+                input += random.choice(state_mapping[hypothesis.current_state])
 
             # execute the sequence
-            self.reset_hyp_and_sul(hypothesis)
-            outputs = []
-            for ind, letter in enumerate(input):
-                out_hyp = hypothesis.step(letter)
-                out_sul = self.sul.step(letter)
-                self.num_steps += 1
-
-                outputs.append(out_sul)
-                if out_hyp != out_sul:
-                    self.sul.post()
-                    return input[: ind + 1]
+            cex = self.execute_test_case(hypothesis, input)
+            if cex:
+                return cex
         return None
 
+class RandomWpMethodDiffFirstEqOracle(Oracle):
+    """
+    Implements the Random Wp-Method but with a bias towards sampling new
+    states.
+    """
+    def __init__(
+        self, alphabet: list, sul: SUL, expected_length=10, min_length=1, bound=1000
+    ):
+        super().__init__(alphabet, sul)
+        self.expected_length = expected_length
+        self.min_length = min_length
+        self.bound = bound
+        self.age_groups = []
+
+    def find_cex(self, hypothesis):
+        if not hypothesis.characterization_set:
+            hypothesis.characterization_set = hypothesis.compute_characterization_set()
+
+        if not self.age_groups:
+            self.age_groups.append([s.state_id for s in hypothesis.states])
+        else:
+            new = []
+            for state in hypothesis.states:
+                if not any(state.state_id in p for p in self.age_groups):
+                    new.append(state.state_id)
+            self.age_groups.append(new)
+
+        state_mapping = {s : state_characterization_set(hypothesis, self.alphabet, s) for s in hypothesis.states}
+        weights = [1 for g in self.age_groups[:-1] for _ in g] + [2 for _ in self.age_groups[-1]]
+        for _ in range(self.bound):
+            state = random.choices(hypothesis.states, weights)[0]
+            input = state.prefix
+            limit = self.min_length
+            while limit > 0 or random.random() > 1 / (self.expected_length + 1):
+                letter = random.choice(self.alphabet)
+                input += (letter,)
+                limit -= 1
+            if random.random() > 0.5:
+                # global suffix with characterization_set
+                input += random.choice(hypothesis.characterization_set)
+            else:
+                # local suffix
+                _ = hypothesis.execute_sequence(hypothesis.initial_state, input)
+                input += random.choice(state_mapping[hypothesis.current_state])
+
+            # execute the sequence
+            cex = self.execute_test_case(hypothesis, input)
+            if cex:
+                return cex
 
 class WpMethodDiffFirstEqOracle(Oracle):
     """
