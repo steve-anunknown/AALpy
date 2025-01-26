@@ -38,12 +38,12 @@ WALKS_PER_ROUND = {
     "TCP_MEDIUM": 200000,
     "TCP_LARGE": 750000,
     "TLS": 1000,
-    "MQTT": 1000,
+    "MQTT": 5000,
     "DTLS_SMALL": 20000,
     "DTLS_MEDIUM": 100000,
     "DTLS_LARGE": 400000,
 }
-WALK_LEN = {"TCP": 50, "TLS": 10, "MQTT": 20, "DTLS": 20}
+WALK_LEN = {"TCP": 50, "TLS": 10, "MQTT": 20, "DTLS": 50}
 
 METHOD_TO_ORACLES = {
     "wmethod": 2,
@@ -71,7 +71,7 @@ def process_oracle(alphabet, sul, oracle, correct_size, i):
         "mealy",
         cache_and_non_det_check=False,
         return_data=True,
-        print_level=2,
+        print_level=0,
     )
     # _, info = run_KV(alphabet, sul, oracle, 'mealy', return_data=True, print_level=0)
     return (
