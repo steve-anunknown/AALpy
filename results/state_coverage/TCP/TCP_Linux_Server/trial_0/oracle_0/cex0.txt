@@ -1,0 +1,1 @@
+('RCV', 'RCV', 'ACK(V,V,0)', 'RCV', 'RCV', 'SYN+ACK(V,V,0)', 'SYN+ACK(V,V,0)', 'RCV', 'FIN+ACK(V,V,0)', 'RCV', 'CLOSE', 'LISTEN', 'LISTEN', 'RCV', 'ACK+PSH(V,V,1)', 'ACK(V,V,0)', 'FIN+ACK(V,V,0)', 'ACK+PSH(V,V,1)', 'SYN(V,V,0)')

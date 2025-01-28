@@ -7,6 +7,23 @@ import argparse
 
 PROTOCOLS = ["tls", "mqtt", "tcp", "dtls"]
 
+def keep_successes(queries, failures):
+    filtered = []
+    for m in range(failures.shape[0]):
+        valid = np.all(failures[m] == 0, axis=1)
+        filtered.append(queries[m, valid, :])
+    return filtered
+
+def compute_scores(queries):
+    if isinstance(queries, list):
+        averages = np.array([np.mean(q, axis=0) for q in queries])
+    else:
+        averages = np.mean(queries, axis=1)
+    s1_scores = np.sum(averages, axis=0)
+    maxima = np.max(averages, axis=1)
+    s2_scores = np.sum(averages / maxima[:, np.newaxis], axis=0)
+    return (s1_scores, s2_scores)
+
 
 def draw_plots(data, results_dir):
     for score in data.columns:
@@ -31,7 +48,7 @@ def draw_plots(data, results_dir):
 
 def make_plots(base_method, results_dir, protocols):
     if base_method == "state_coverage":
-        oracles = ["Random", "Linear", "Quadratic", "Exponential", "Inverse"]
+        oracles = ["Random", "Linear", "Quadratic", "Exponential"]
     elif base_method == "wmethod":
         oracles = ["Normal", "Reverse"]
     elif base_method == "wpmethod":
@@ -43,7 +60,6 @@ def make_plots(base_method, results_dir, protocols):
                 "Linear",
                 "Quadratic",
                 "Exponential",
-                "Inverse",
             ],  # state_coverage
             ["Normal", "Reverse"],  # wmethod
             ["Normal", "Reverse", "TSDiff"],  # wpmethod
@@ -57,8 +73,12 @@ def make_plots(base_method, results_dir, protocols):
     )
     for method, orcs in zip(methods, oracles):
         if protocols == ["combined"]:
-            s1_scores = np.load(f"{results_dir}/{method}/eq_queries_s1_scores.npy")
-            s2_scores = np.load(f"{results_dir}/{method}/eq_queries_s2_scores.npy")
+            measurements = np.load(f"{results_dir}/{method}/eq_queries.npy")
+            failures = np.load(f"{results_dir}/{method}/failures.npy")
+            if np.any(failures == 1):
+                assert method == "state_coverage", "Only state_coverage is expected to fail"
+                measurements = [a for a in keep_successes(measurements, failures) if len(a) >= 10]
+            (s1_scores, s2_scores) = compute_scores(measurements)
             scores = np.array([s1_scores, s2_scores]).T
             df = pd.DataFrame(scores, columns=["S1", "S2"], index=orcs)
             draw_plots(df, f"{results_dir}/{method}")
@@ -77,16 +97,19 @@ def make_plots(base_method, results_dir, protocols):
             curdir = f"{results_dir}/{method}/{protocol}"
             # shape of measurements is (num_models, num_runs, num_oracles)
             measurements = np.load(f"{curdir}/eq_queries.npy")
-            averages = np.mean(measurements, axis=1)
-            s1_scores = np.sum(averages, axis=0)
+            failures = np.load(f"{curdir}/failures.npy")
+            if np.any(failures == 1):
+                assert method == "state_coverage", "Only state_coverage is expected to fail"
+                measurements = [a for a in keep_successes(measurements, failures) if len(a) >= 10]
 
-            maxima = np.max(averages, axis=1)
-            s2_scores = np.sum(averages / maxima[:, np.newaxis], axis=0)
-
+            (s1_scores, s2_scores) = compute_scores(measurements)
             scores = np.array([s1_scores, s2_scores]).T
             df = pd.DataFrame(scores, columns=["S1", "S2"], index=orcs)
             draw_plots(df, curdir)
-            s2_weighted += s2_scores * measurements.shape[0] / total
+            if isinstance(measurements, list):
+                s2_weighted += s2_scores * len(measurements) / total
+            else:
+                s2_weighted += s2_scores * measurements.shape[0] / total
 
         plt.figure(figsize=(8, 6))
         sns.barplot(x=df.index, y=s2_weighted, palette="viridis", hue=df.index)

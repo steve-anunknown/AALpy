@@ -48,7 +48,7 @@ WALK_LEN = {"TCP": 50, "TLS": 10, "MQTT": 20, "DTLS": 50}
 METHOD_TO_ORACLES = {
     "wmethod": 2,
     "wpmethod": 3,
-    "state_coverage": 5,
+    "state_coverage": 4,
 }
 
 
@@ -120,7 +120,7 @@ def do_learning_experiments(model, alphabet, correct_size, prot):
             StochasticLinear(alphabet, suls[1], wpr, wl),
             StochasticSquare(alphabet, suls[2], wpr, wl),
             StochasticExponential(alphabet, suls[3], wpr, wl),
-            StochasticInverse(alphabet, suls[4], wpr, wl),
+            # StochasticInverse(alphabet, suls[4], wpr, wl),
         ]
     elif BASE_METHOD == "wmethod":
         max_size = model.size + 2  # cheating but ok
@@ -149,7 +149,7 @@ def do_learning_experiments(model, alphabet, correct_size, prot):
             (alphabet, sul, oracle, correct_size, i)
             for i, (sul, oracle) in enumerate(zip(suls, eq_oracles))
         ]
-        workers = mp.cpu_count() - 1
+        workers = mp.cpu_count()
         with mp.Pool(workers) as pool:
             results = pool.starmap(process_oracle, tasks)
     else:
@@ -323,24 +323,6 @@ if __name__ == "__main__":
             ):
                 super().__init__(
                     alphabet, sul, walks_per_round, walk_len, prob_function
-                )
-
-        def user(x, size):
-            fundamental = 0.5 / (1 - 0.5**size)
-            return fundamental * (0.5**x)
-
-        class StochasticInverse(StochasticStateCoverageEqOracle):
-            def __init__(
-                self,
-                alphabet,
-                sul,
-                walks_per_round,
-                walk_len,
-                prob_function="user",
-                user=user,
-            ):
-                super().__init__(
-                    alphabet, sul, walks_per_round, walk_len, prob_function, user
                 )
 
     elif BASE_METHOD == "wmethod":

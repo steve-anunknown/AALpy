@@ -1,0 +1,1 @@
+('LISTEN', 'ACK+RST(V,V,0)', 'LISTEN', 'ACCEPT', 'RST(V,V,0)', 'CLOSE', 'ACK+PSH(V,V,1)', 'ACCEPT', 'ACK(V,V,0)', 'ACK+PSH(V,V,1)', 'ACK+PSH(V,V,1)', 'LISTEN', 'LISTEN', 'ACK(V,V,0)', 'LISTEN', 'SYN(V,V,0)')
