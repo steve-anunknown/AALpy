@@ -10,15 +10,16 @@
 # the lowest upper bound.
 
 import argparse
-import os
 import pathlib
+import math
+import os
+from rich.progress import Progress
 from aalpy.utils.FileHandler import load_automaton_from_file
 from aalpy.learning_algs.deterministic.LStar import run_Lstar
 from aalpy.oracles.StochasticStateCoverageEqOracle import (
     StochasticStateCoverageEqOracle,
 )
 from aalpy.SULs.AutomataSUL import AutomatonSUL
-from rich.progress import Progress
 
 PROTOCOLS = ["tls", "mqtt", "tcp", "dtls"]
 WALK_LEN = {"tcp": 50, "tls": 10, "mqtt": 15, "dtls": 40}
@@ -27,6 +28,7 @@ TRIALS = 30
 FORBIDDEN = {"tls": 2**10, "mqtt": 2**14, "tcp": 2**22, "dtls": 2**20}
 FORBIDDEN_POWERS = {"tls": 10, "mqtt": 14, "tcp": 22, "dtls": 20}
 VARIANTS = ["linear", "exponential", "square", "random"]
+
 
 def run_experiment(models, lower_bound, walk_len, variant=None):
     """Run the experiment for a given lower bound and walk length
@@ -59,7 +61,7 @@ def run_experiment(models, lower_bound, walk_len, variant=None):
             failure = learned_model.size != correct_size
             if failure:
                 return False
-        
+
     return True
 
 
@@ -77,7 +79,7 @@ def main(protocol, oracle, variant=None):
         outer_bar = progress.add_task("Searching for upper bound", total=power)
         lower_bound = 1
         success = False
-        for lower_bound in (2 ** i for i in range(power)):
+        for lower_bound in (2**i for i in range(power)):
             success = run_experiment(models, lower_bound, walk_len, variant)
             upper_bound = lower_bound
             if success:
@@ -90,18 +92,27 @@ def main(protocol, oracle, variant=None):
         return
 
     # binary search
-    lower_bound = upper_bound // 2
-    epsilon = upper_bound // 100
-    delta = (upper_bound - lower_bound) // 2
-    while lower_bound < upper_bound and delta >= epsilon:
-        middle = (lower_bound + upper_bound) // 2
-        print(f"Middle: {middle}", end="\r", flush=True)
-        success = run_experiment(models, middle, walk_len, variant)
-        if success:
-            upper_bound = middle
-        else:
-            lower_bound = middle + 1
-        delta = abs(middle - (lower_bound + upper_bound) // 2)
+    with Progress() as progress:
+        lower_bound = upper_bound // 2
+        epsilon = upper_bound // 10
+        delta = (upper_bound - lower_bound) // 2
+        span = upper_bound - lower_bound
+
+        inner_bar = progress.add_task(
+            f"Binary search in [{lower_bound}, {upper_bound}]",
+            total=math.log2(span) + 1,
+        )
+
+        while lower_bound < upper_bound and delta >= epsilon:
+            middle = (lower_bound + upper_bound) // 2
+            success = run_experiment(models, middle, walk_len, variant)
+            if success:
+                upper_bound = middle
+            else:
+                lower_bound = middle + 1
+            delta = abs(middle - (lower_bound + upper_bound) // 2)
+            progress.update(inner_bar, advance=1)
+        progress.update(inner_bar, completed=math.log2(span) + 1)
 
     print(f"Infimum number of queries for {protocol} using {oracle} is {upper_bound}")
 
