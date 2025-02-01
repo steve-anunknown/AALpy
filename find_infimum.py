@@ -10,16 +10,18 @@
 # the lowest upper bound.
 
 import argparse
-import pathlib
 import math
 import os
+import pathlib
+
 from rich.progress import Progress
-from aalpy.utils.FileHandler import load_automaton_from_file
+
 from aalpy.learning_algs.deterministic.LStar import run_Lstar
 from aalpy.oracles.StochasticStateCoverageEqOracle import (
     StochasticStateCoverageEqOracle,
 )
 from aalpy.SULs.AutomataSUL import AutomatonSUL
+from aalpy.utils.FileHandler import load_automaton_from_file
 
 PROTOCOLS = ["tls", "mqtt", "tcp", "dtls"]
 WALK_LEN = {"tcp": 50, "tls": 10, "mqtt": 15, "dtls": 40}
