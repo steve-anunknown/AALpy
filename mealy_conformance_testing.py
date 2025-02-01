@@ -38,10 +38,8 @@ WALKS_PER_ROUND = {
     "TCP_MEDIUM": 200000,
     "TCP_LARGE": 750000,
     "TLS": 1000,
-    "MQTT": 5000,
-    "DTLS_SMALL": 20000,
-    "DTLS_MEDIUM": 100000,
-    "DTLS_LARGE": 400000,
+    "MQTT": 3100,
+    "DTLS": 550000,
 }
 WALK_LEN = {"TCP": 50, "TLS": 10, "MQTT": 20, "DTLS": 50}
 
