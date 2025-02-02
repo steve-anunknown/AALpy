@@ -3,6 +3,7 @@ import sys
 import pathlib
 import numpy as np
 import multiprocessing as mp
+from tqdm import tqdm
 
 # import argument parser
 import argparse
@@ -34,18 +35,19 @@ np.set_printoptions(suppress=True)
 # pd.options.display.float_format = '{:.3f}'.format
 
 # with uniform random
-# TCP_Linux_Client is 10240 -> 11000 for good measure
+# TCP_Linux_Client is 10240 -> 12000 for good measure
 # TCP_Linux_Server is 524288 -> 550000 for good measure
-# tcp_server_ubuntu_trans 393216 -> 400000 for good measure
-# tcp_server_bsd_trans is 2097152 -> 2100000 for good measure
-# tcp_server_windows_trans is 49152 -> 50000 for good measure
+# tcp_server_ubuntu_trans 393216 -> 410000 for good measure
+# tcp_server_bsd_trans is 2097152 -> 2200000 for good measure
+# tcp_server_windows_trans is 49152 -> 60000 for good measure
 TCP_MODELS = {
-        "TCP_Linux_Client": 11000,
-        "TCP_Linux_Server": 550000,
-        "tcp_server_ubuntu_trans": 400000,
-        "tcp_server_bsd_trans": 2100000,
-        "tcp_server_windows_trans": 50000,
+    "TCP_Linux_Client": 12000,
+    "TCP_Linux_Server": 550000,
+    "tcp_server_ubuntu_trans": 410000,
+    "tcp_server_bsd_trans": 2200000,
+    "tcp_server_windows_trans": 60000,
 }
+
 
 # with uniform random
 def DTLS_MODELS(size):
@@ -66,6 +68,7 @@ def DTLS_MODELS(size):
         return 200000
     else:
         raise ValueError("Invalid size for DTLS model")
+
 
 WALKS_PER_ROUND = {
     "TLS": 1,
@@ -197,7 +200,7 @@ def main():
     FAILURES = np.zeros((len(FILES), TIMES, NUM_ORACLES))
 
     # iterate over the models
-    for index, (model, file) in enumerate(zip(MODELS, FILES)):
+    for index, (model, file) in tqdm(enumerate(zip(MODELS, FILES))):
         # these variables can be shared among the processes
         prot = file.parent.stem
         # repeat the experiments to gather statistics
