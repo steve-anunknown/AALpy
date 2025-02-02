@@ -3,6 +3,7 @@ import sys
 import pathlib
 import numpy as np
 import multiprocessing as mp
+from tqdm import tqdm
 
 # import argument parser
 import argparse
@@ -33,15 +34,46 @@ np.set_printoptions(suppress=True)
 # print up to 3 decimal point
 # pd.options.display.float_format = '{:.3f}'.format
 
+# with uniform random
+# TCP_Linux_Client is 10240 -> 12000 for good measure
+# TCP_Linux_Server is 524288 -> 550000 for good measure
+# tcp_server_ubuntu_trans 393216 -> 410000 for good measure
+# tcp_server_bsd_trans is 2097152 -> 2200000 for good measure
+# tcp_server_windows_trans is 49152 -> 60000 for good measure
+TCP_MODELS = {
+    "TCP_Linux_Client": 12000,
+    "TCP_Linux_Server": 550000,
+    "tcp_server_ubuntu_trans": 410000,
+    "tcp_server_bsd_trans": 2200000,
+    "tcp_server_windows_trans": 60000,
+}
+
+
+# with uniform random
+def DTLS_MODELS(size):
+    # dtls for 80 < states <= 120 is 524288 -> 550000 for good measure
+    if 80 < size <= 120:
+        return 550000
+    # dtls for 50 < states <= 80 is 262144 -> 300000 for good measure
+    elif 50 < size <= 80:
+        return 300000
+    # dtls for 30 < states <= 50 is 57344 -> 70000 for good measure
+    elif 30 < size <= 50:
+        return 70000
+    # dtls for 20 < states <= 30 is 163840 -> 200000 for good measure
+    elif 20 < size <= 30:
+        return 200000
+    # dtls for 10 <= states <= 20 is 163840 -> 200000 for good measure
+    elif 10 <= size <= 20:
+        return 200000
+    else:
+        raise ValueError("Invalid size for DTLS model")
+
+
 WALKS_PER_ROUND = {
-    "TCP_SMALL": 40000,
-    "TCP_MEDIUM": 200000,
-    "TCP_LARGE": 750000,
-    "TLS": 1000,
-    "MQTT": 5000,
-    "DTLS_SMALL": 20000,
-    "DTLS_MEDIUM": 100000,
-    "DTLS_LARGE": 400000,
+    "TLS": 1,
+    "MQTT": 3100,
+    "DTLS": 550000,
 }
 WALK_LEN = {"TCP": 50, "TLS": 10, "MQTT": 20, "DTLS": 50}
 
@@ -84,37 +116,27 @@ def process_oracle(alphabet, sul, oracle, correct_size, i):
     )
 
 
-def do_learning_experiments(model, alphabet, correct_size, prot):
+def do_learning_experiments(model, prot):
     """
     Perform the learning experiments for the given model and alphabet.
 
     Args:
         model: model to learn
-        alphabet: input alphabet correct_size: correct size of the model
+        alphabet: input alphabet
+        prot: protocol name and model name
     """
+    alphabet = list(model.get_input_alphabet())
     # create a copy of the SUL for each oracle
     suls = [AutomatonSUL(model) for _ in range(NUM_ORACLES)]
     # initialize the oracles
     if BASE_METHOD == "state_coverage":
-        wl = WALK_LEN[prot]
-        if prot == "DTLS":
-            if model.size <= 17:
-                prot_prime = prot + "_SMALL"
-            elif model.size <= 66:
-                prot_prime = prot + "_MEDIUM"
-            else:
-                prot_prime = prot + "_LARGE"
-            wpr = WALKS_PER_ROUND[prot_prime]
-        elif prot == "TCP":
-            if model.size <= 15:
-                prot_prime = prot + "_SMALL"
-            elif model.size <= 38:
-                prot_prime = prot + "_MEDIUM"
-            else:
-                prot_prime = prot + "_LARGE"
-            wpr = WALKS_PER_ROUND[prot_prime]
+        wl = WALK_LEN[prot[0]]
+        if prot[0] == "DTLS":
+            wpr = DTLS_MODELS(model.size)
+        elif prot[0] == "TCP":
+            wpr = TCP_MODELS[prot[1]]
         else:
-            wpr = WALKS_PER_ROUND[prot]
+            wpr = WALKS_PER_ROUND[prot[0]]
         eq_oracles = [
             StochasticRandom(alphabet, suls[0], wpr, wl),
             StochasticLinear(alphabet, suls[1], wpr, wl),
@@ -123,13 +145,13 @@ def do_learning_experiments(model, alphabet, correct_size, prot):
             # StochasticInverse(alphabet, suls[4], wpr, wl),
         ]
     elif BASE_METHOD == "wmethod":
-        max_size = model.size + 2  # cheating but ok
+        max_size = model.size + 2
         eq_oracles = [
             WMethod(alphabet, suls[0], max_size),
             WMethodDiffFirst(alphabet, suls[1], max_size),
         ]
     elif BASE_METHOD == "wpmethod":
-        max_size = model.size + 2  # cheating but ok
+        max_size = model.size + 2
         eq_oracles = [
             WpMethod(alphabet, suls[0], max_size),
             WpMethodDiffFirst(alphabet, suls[1], max_size),
@@ -146,7 +168,7 @@ def do_learning_experiments(model, alphabet, correct_size, prot):
     if PARALLEL:
         # create the arguments for eache oracle's task
         tasks = [
-            (alphabet, sul, oracle, correct_size, i)
+            (alphabet, sul, oracle, model.size, i)
             for i, (sul, oracle) in enumerate(zip(suls, eq_oracles))
         ]
         workers = mp.cpu_count()
@@ -154,7 +176,7 @@ def do_learning_experiments(model, alphabet, correct_size, prot):
             results = pool.starmap(process_oracle, tasks)
     else:
         results = [
-            process_oracle(alphabet, sul, oracle, correct_size, i)
+            process_oracle(alphabet, sul, oracle, model.size, i)
             for i, (sul, oracle) in enumerate(zip(suls, eq_oracles))
         ]
 
@@ -178,15 +200,13 @@ def main():
     FAILURES = np.zeros((len(FILES), TIMES, NUM_ORACLES))
 
     # iterate over the models
-    for index, (model, file) in enumerate(zip(MODELS, FILES)):
+    for index, (model, file) in tqdm(enumerate(zip(MODELS, FILES))):
         # these variables can be shared among the processes
         prot = file.parent.stem
-        correct_size = model.size
-        alphabet = list(model.get_input_alphabet())
         # repeat the experiments to gather statistics
         for trial in range(TIMES):
 
-            results = do_learning_experiments(model, alphabet, correct_size, prot)
+            results = do_learning_experiments(model, (prot, file.stem))
 
             for i, eq_queries, mb_queries, failure, hyps, cexs in results:
                 EQ_QUERIES[index, trial, i] = eq_queries

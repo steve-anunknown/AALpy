@@ -1,1 +1,1 @@
-('ConnectC2 ', 'SubscribeC2 ', 'SubscribeC1 ', 'DisconnectC2 ', 'UnSubScribeC1 ', 'UnSubScribeC1 ', 'PublishC1 ', 'SubscribeC2 ', 'ConnectC2 ', 'UnSubScribeC1 ', 'PublishC2 ')
+('ConnectC2 ', 'SubscribeC2 ', 'ConnectC1WithWill ', 'DisconnectC1 ', 'SubscribeC2 ', 'DisconnectTCPC1 ', 'DisconnectC1 ', 'DisconnectTCPC1 ', 'UnSubScribeC2 ', 'DisconnectTCPC1 ', 'ConnectC2 ', 'SubscribeC2 ', 'DisconnectTCPC1 ', 'PublishC1 ', 'UnSubScribeC1 ', 'DisconnectC2 ', 'SubscribeC2 ', 'DisconnectTCPC1 ', 'ConnectC2 ', 'UnSubScribeC1 ', 'PublishC2 ')
