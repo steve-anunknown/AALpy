@@ -14,15 +14,16 @@ def keep_successes(queries, failures):
         filtered.append(queries[m, valid, :])
     return filtered
 
-def compute_scores(queries):
-    if isinstance(queries, list):
-        averages = np.array([np.mean(q, axis=0) for q in queries])
-    else:
-        averages = np.mean(queries, axis=1)
+def compute_scores(queries, failures):
+    averages = np.mean(queries, axis=1)
     s1_scores = np.sum(averages, axis=0)
+
     maxima = np.max(averages, axis=1)
     s2_scores = np.sum(averages / maxima[:, np.newaxis], axis=0)
-    return (s1_scores, s2_scores)
+
+    fails = np.sum(np.mean(failures,axis=1), axis=0)
+    s2_scores_penalized = s2_scores + fails
+    return (s1_scores, s2_scores, s2_scores_penalized)
 
 
 def draw_plots(data, results_dir):
@@ -75,55 +76,27 @@ def make_plots(base_method, results_dir, protocols):
         if protocols == ["combined"]:
             measurements = np.load(f"{results_dir}/{method}/eq_queries.npy")
             failures = np.load(f"{results_dir}/{method}/failures.npy")
-            if np.any(failures == 1):
-                assert method == "state_coverage", "Only state_coverage is expected to fail"
-                measurements = [a for a in keep_successes(measurements, failures) if len(a) >= 10]
-            (s1_scores, s2_scores) = compute_scores(measurements)
-            scores = np.array([s1_scores, s2_scores]).T
-            df = pd.DataFrame(scores, columns=["S1", "S2"], index=orcs)
+            (s1_scores, s2_scores, s2_scores_penalized) = compute_scores(measurements, failures)
+            scores = np.array([s1_scores, s2_scores, s2_scores_penalized]).T
+            df = pd.DataFrame(scores, columns=["S1", "S2", "S2_Penalized"], index=orcs)
             draw_plots(df, f"{results_dir}/{method}")
             continue
 
-        total = 0
         for protocol in protocols:
             protocol = protocol.upper()
             curdir = f"{results_dir}/{method}/{protocol}"
             measurements = np.load(f"{curdir}/eq_queries.npy")
-            total += measurements.shape[0]
 
-        s2_weighted = np.zeros((len(orcs),))
         for protocol in protocols:
             protocol = protocol.upper()
             curdir = f"{results_dir}/{method}/{protocol}"
             # shape of measurements is (num_models, num_runs, num_oracles)
             measurements = np.load(f"{curdir}/eq_queries.npy")
             failures = np.load(f"{curdir}/failures.npy")
-            if np.any(failures == 1):
-                assert method == "state_coverage", "Only state_coverage is expected to fail"
-                measurements = [a for a in keep_successes(measurements, failures) if len(a) >= 10]
-
-            (s1_scores, s2_scores) = compute_scores(measurements)
-            scores = np.array([s1_scores, s2_scores]).T
-            df = pd.DataFrame(scores, columns=["S1", "S2"], index=orcs)
+            (s1_scores, s2_scores, s2_scores_penalized) = compute_scores(measurements, failures)
+            scores = np.array([s1_scores, s2_scores, s2_scores_penalized]).T
+            df = pd.DataFrame(scores, columns=["S1", "S2", "S2_Penalized"], index=orcs)
             draw_plots(df, curdir)
-            if isinstance(measurements, list):
-                s2_weighted += s2_scores * len(measurements) / total
-            else:
-                s2_weighted += s2_scores * measurements.shape[0] / total
-
-        plt.figure(figsize=(8, 6))
-        sns.barplot(x=df.index, y=s2_weighted, palette="viridis", hue=df.index)
-        plt.title("weighted S2 score")
-        plt.xlabel("Oracle", fontsize=12)
-        plt.ylabel("Score", fontsize=12)
-        if not s2_weighted.max() == s2_weighted.min():
-            maxdiff = s2_weighted.max() - s2_weighted.min()
-            plt.ylim(
-                s2_weighted.min() - 0.1 * maxdiff, s2_weighted.max() + 0.1 * maxdiff
-            )
-        plt.tight_layout()
-        plt.savefig(f"{results_dir}/{method}/s2_scores_weighted.pdf", format="pdf")
-        plt.close()
 
 
 if __name__ == "__main__":
