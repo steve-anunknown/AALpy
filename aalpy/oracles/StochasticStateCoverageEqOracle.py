@@ -52,12 +52,12 @@ class StochasticStateCoverageEqOracle(Oracle):
     
     def find_cex(self, hypothesis):
         if not self.age_groups:
-            self.age_groups.extend([[s for s in hypothesis.states]])
+            self.age_groups.extend([[s.state_id for s in hypothesis.states]])
         else:
             new = []
-            for state in hypothesis.states:
-                if not any(state in p for p in self.age_groups):
-                    new.append(state)
+            for s in hypothesis.states:
+                if not any(s.state_id in p for p in self.age_groups):
+                    new.append(s.state_id)
             self.age_groups.extend([new])
         if not self.prob_function == 'random':
             n = len(self.age_groups)
@@ -75,6 +75,7 @@ class StochasticStateCoverageEqOracle(Oracle):
             if not self.prob_function == 'random':
                 group = random.choices(self.age_groups, probabilities)[0]
                 state = random.choice(group)
+                state = hypothesis.get_state_by_id(state)
             else:
                 state = random.choice(hypothesis.states)
 

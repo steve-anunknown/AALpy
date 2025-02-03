@@ -1,0 +1,1 @@
+('SYN(V,V,0)', 'ACK(V,V,0)', 'ACCEPT', 'CLOSE', 'SYN+ACK(V,V,0)', 'CLOSE', 'SYN+ACK(V,V,0)', 'RST(V,V,0)', 'SYN(V,V,0)', 'ACK+RST(V,V,0)', 'ACK(V,V,0)', 'ACCEPT', 'RST(V,V,0)', 'CLOSE', 'SYN(V,V,0)', 'RST(V,V,0)', 'LISTEN', 'RST(V,V,0)', 'RST(V,V,0)', 'RST(V,V,0)', 'CLOSECONNECTION', 'SYN(V,V,0)')

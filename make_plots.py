@@ -7,30 +7,49 @@ import argparse
 
 PROTOCOLS = ["tls", "mqtt", "tcp", "dtls"]
 
+def keep_successes(queries, failures):
+    filtered = []
+    for m in range(failures.shape[0]):
+        valid = np.all(failures[m] == 0, axis=1)
+        filtered.append(queries[m, valid, :])
+    return filtered
+
+def compute_scores(queries, failures):
+    averages = np.mean(queries, axis=1)
+    s1_scores = np.sum(averages, axis=0)
+
+    maxima = np.max(averages, axis=1)
+    s2_scores = np.sum(averages / maxima[:, np.newaxis], axis=0)
+
+    fails = np.sum(np.mean(failures,axis=1), axis=0)
+    s2_scores_penalized = s2_scores + fails
+    return (s1_scores, s2_scores, s2_scores_penalized)
+
+
 def draw_plots(data, results_dir):
     for score in data.columns:
         for zoom in [False, True]:
             plt.figure(figsize=(8, 6))
-            sns.barplot(
-                x=data.index, y=data[score], palette="viridis", hue=data.index
-            )
-            plt.title(
-                f'{score} Scores{"" if not zoom else " (zoomed)"}', fontsize=16
-            )
+            sns.barplot(x=data.index, y=data[score], palette="viridis", hue=data.index)
+            plt.title(f'{score} Scores{"" if not zoom else " (zoomed)"}', fontsize=16)
             plt.xlabel("Oracle", fontsize=12)
             plt.ylabel("Score", fontsize=12)
             if zoom:
                 if not data[score].max() == data[score].min():
                     maxdiff = data[score].max() - data[score].min()
-                    plt.ylim(data[score].min() - 0.1 * maxdiff, data[score].max() + 0.1 * maxdiff)
+                    plt.ylim(
+                        data[score].min() - 0.1 * maxdiff,
+                        data[score].max() + 0.1 * maxdiff,
+                    )
             plt.tight_layout()
             name = f'{score.lower()}_scores{"" if not zoom else "_zoomed"}'
             plt.savefig(f"{results_dir}/{name}.pdf", format="pdf")
             plt.close()
 
+
 def make_plots(base_method, results_dir, protocols):
     if base_method == "state_coverage":
-        oracles = ["Random", "Linear", "Quadratic", "Exponential", "Inverse"]
+        oracles = ["Random", "Linear", "Quadratic", "Exponential"]
     elif base_method == "wmethod":
         oracles = ["Normal", "Reverse"]
     elif base_method == "wpmethod":
@@ -49,26 +68,28 @@ def make_plots(base_method, results_dir, protocols):
     methods = ["state_coverage", "wmethod", "wpmethod", "rwpmethod"] if base_method == "all" else [base_method]
     for method, orcs in zip(methods, oracles):
         if protocols == ["combined"]:
-            s1_scores = np.load(f"{results_dir}/{method}/eq_queries_s1_scores.npy")
-            s2_scores = np.load(f"{results_dir}/{method}/eq_queries_s2_scores.npy")
-            scores = np.array([s1_scores, s2_scores]).T
-            df = pd.DataFrame(scores, columns=["S1", "S2"], index=orcs)
-            draw_plots(df, f'{results_dir}/{method}')
+            measurements = np.load(f"{results_dir}/{method}/eq_queries.npy")
+            failures = np.load(f"{results_dir}/{method}/failures.npy")
+            (s1_scores, s2_scores, s2_scores_penalized) = compute_scores(measurements, failures)
+            scores = np.array([s1_scores, s2_scores, s2_scores_penalized]).T
+            df = pd.DataFrame(scores, columns=["S1", "S2", "S2_Penalized"], index=orcs)
+            draw_plots(df, f"{results_dir}/{method}")
             continue
+
+        for protocol in protocols:
+            protocol = protocol.upper()
+            curdir = f"{results_dir}/{method}/{protocol}"
+            measurements = np.load(f"{curdir}/eq_queries.npy")
 
         for protocol in protocols:
             protocol = protocol.upper()
             curdir = f"{results_dir}/{method}/{protocol}"
             # shape of measurements is (num_models, num_runs, num_oracles)
             measurements = np.load(f"{curdir}/eq_queries.npy")
-            averages = np.mean(measurements, axis=1)
-            s1_scores = np.sum(averages, axis=0)
-
-            maxima = np.max(averages, axis=1)
-            s2_scores = np.sum(averages / maxima[:, np.newaxis], axis=0)
-
-            scores = np.array([s1_scores, s2_scores]).T
-            df = pd.DataFrame(scores, columns=["S1", "S2"], index=orcs)
+            failures = np.load(f"{curdir}/failures.npy")
+            (s1_scores, s2_scores, s2_scores_penalized) = compute_scores(measurements, failures)
+            scores = np.array([s1_scores, s2_scores, s2_scores_penalized]).T
+            df = pd.DataFrame(scores, columns=["S1", "S2", "S2_Penalized"], index=orcs)
             draw_plots(df, curdir)
 
 
@@ -95,7 +116,7 @@ if __name__ == "__main__":
         "-p",
         "--protocols",
         type=str,
-        choices= PROTOCOLS + ["combined", "all"],
+        choices=PROTOCOLS + ["combined", "all"],
         default="all",
         help="Protocols to plot",
         required=True,
