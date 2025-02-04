@@ -20,19 +20,46 @@ from aalpy.learning_algs.deterministic.LStar import run_Lstar
 from aalpy.oracles.StochasticStateCoverageEqOracle import (
     StochasticStateCoverageEqOracle,
 )
+from aalpy.oracles.WpMethodEqOracle import (
+    RandomWpMethodEqOracle,
+    RandomWpMethodDiffFirstEqOracle,
+)
 from aalpy.SULs.AutomataSUL import AutomatonSUL
 from aalpy.utils.FileHandler import load_automaton_from_file
 
 PROTOCOLS = ["tls", "mqtt", "tcp", "dtls"]
 WALK_LEN = {"tcp": 50, "tls": 10, "mqtt": 15, "dtls": 40}
-ORACLES = ["state_coverage"]
+ORACLES = ["state_coverage", "rwpmethod"]
 TRIALS = 30
 FORBIDDEN = {"tls": 2**10, "mqtt": 2**14, "tcp": 2**22, "dtls": 2**20}
 FORBIDDEN_POWERS = {"tls": 10, "mqtt": 14, "tcp": 22, "dtls": 20}
-VARIANTS = ["linear", "exponential", "square", "random"]
 
 
-def run_experiment(models, lower_bound, walk_len, variant=None):
+class ConditionalArgumentAction(argparse.Action):
+    def __call__(self, parser, namespace, values, option_string=None):
+        setattr(namespace, self.dest, values)
+
+        # Define conditional constraints
+        variants = {
+            "state_coverage": ["linear", "exponential", "square", "random"],
+            "rwpmethod": ["normal", "diff"],
+        }
+
+        # Get the dependent parameter's value
+        oracle = getattr(namespace, "oracle", None)
+        if oracle and oracle in variants:
+            if values not in variants[oracle]:
+                parser.error(
+                    f"Invalid value '{values}' for --variant when --oracle is '{oracle}'. "
+                    f"Valid choices are: {variants[oracle]}"
+                )
+        else:
+            parser.error(
+                f"Unknown value '{oracle}' for --oracle. Choose from {list(variants.keys())}."
+            )
+
+
+def run_experiment(models, lower_bound, walk_len, method, variant):
     """Run the experiment for a given lower bound and walk length
 
     models -- The models to learn
@@ -45,13 +72,33 @@ def run_experiment(models, lower_bound, walk_len, variant=None):
             correct_size = model.size
             alphabet = model.get_input_alphabet()
             sul = AutomatonSUL(model)
-            eq_oracle = StochasticStateCoverageEqOracle(
-                alphabet,
-                sul,
-                walks_per_round=lower_bound,
-                walk_len=walk_len,
-                prob_function=variant,
-            )
+            if method == "state_coverage":
+                eq_oracle = StochasticStateCoverageEqOracle(
+                    alphabet,
+                    sul,
+                    walks_per_round=lower_bound,
+                    walk_len=walk_len,
+                    prob_function=variant,
+                )
+            elif method == "rwpmethod":
+                if variant == "normal":
+                    eq_oracle = RandomWpMethodEqOracle(
+                        alphabet,
+                        sul,
+                        expected_length=walk_len,
+                        min_length=1,
+                        bound=lower_bound,
+                    )
+                elif variant == "diff":
+                    eq_oracle = RandomWpMethodDiffFirstEqOracle(
+                        alphabet,
+                        sul,
+                        expected_length=walk_len,
+                        min_length=1,
+                        bound=lower_bound,
+                    )
+                else:
+                    raise ValueError(f"Unknown variant {variant} for rwpmethod")
             learned_model = run_Lstar(
                 alphabet,
                 sul,
@@ -82,7 +129,7 @@ def main(protocol, oracle, variant=None):
         lower_bound = 1
         success = False
         for lower_bound in (2**i for i in range(power)):
-            success = run_experiment(models, lower_bound, walk_len, variant)
+            success = run_experiment(models, lower_bound, walk_len, oracle, variant)
             upper_bound = lower_bound
             if success:
                 progress.update(outer_bar, completed=power)
@@ -107,7 +154,7 @@ def main(protocol, oracle, variant=None):
 
         while lower_bound < upper_bound and delta >= epsilon:
             middle = (lower_bound + upper_bound) // 2
-            success = run_experiment(models, middle, walk_len, variant)
+            success = run_experiment(models, middle, walk_len, oracle, variant)
             if success:
                 upper_bound = middle
             else:
@@ -146,9 +193,9 @@ if __name__ == "__main__":
         "-v",
         "--variant",
         type=str,
-        required=False,
-        choices=VARIANTS,
-        help="The variant of the state coverage oracle",
+        required=True,
+        action=ConditionalArgumentAction,
+        help="The variant of the oracle",
     )
     args = parser.parse_args()
     main(args.protocol, args.oracle, args.variant)
