@@ -132,7 +132,7 @@ def do_learning_experiments(model, prot):
     # create a copy of the SUL for each oracle
     suls = [AutomatonSUL(model) for _ in range(NUM_ORACLES)]
     # initialize the oracles
-    if BASE_METHOD == "state_coverage":
+    if BASE_METHOD == "state_coverage" or BASE_METHOD == "rwpmethod":
         wl = WALK_LEN[prot[0]]
         if prot[0] == "DTLS":
             wpr = DTLS_MODELS(model.size)
@@ -140,13 +140,19 @@ def do_learning_experiments(model, prot):
             wpr = TCP_MODELS[prot[1]]
         else:
             wpr = WALKS_PER_ROUND[prot[0]]
-        eq_oracles = [
-            StochasticRandom(alphabet, suls[0], wpr, wl),
-            StochasticLinear(alphabet, suls[1], wpr, wl),
-            StochasticSquare(alphabet, suls[2], wpr, wl),
-            StochasticExponential(alphabet, suls[3], wpr, wl),
-            # StochasticInverse(alphabet, suls[4], wpr, wl),
-        ]
+        if BASE_METHOD == "state_coverage":
+            eq_oracles = [
+                StochasticRandom(alphabet, suls[0], wpr, wl),
+                StochasticLinear(alphabet, suls[1], wpr, wl),
+                StochasticSquare(alphabet, suls[2], wpr, wl),
+                StochasticExponential(alphabet, suls[3], wpr, wl),
+                # StochasticInverse(alphabet, suls[4], wpr, wl),
+            ]
+        else:
+            eq_oracles = [
+                RandomWp(alphabet, suls[0], wl, 1, wpr),
+                RandomWpDiffFirst(alphabet, suls[1], wl, 1, wpr),
+            ]
     elif BASE_METHOD == "wmethod":
         max_size = model.size + 2
         eq_oracles = [
@@ -159,15 +165,6 @@ def do_learning_experiments(model, prot):
             WpMethod(alphabet, suls[0], max_size),
             WpMethodDiffFirst(alphabet, suls[1], max_size),
             WpMethodTSDiff(alphabet, suls[2], max_size),
-        ]
-    elif BASE_METHOD == "rwpmethod":
-        # similar to max queries required by wpmethod
-        wpr = 500000 if prot == "TCP" or prot == "DTLS" else wpr
-        eq_oracles = [
-            RandomWp(alphabet, suls[0], wl, 1, wpr),
-            RandomWpDiffFirst(
-                alphabet, suls[1], wl, 1, wpr
-            ),
         ]
     else:
         raise ValueError("Unknown base method")
