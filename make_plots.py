@@ -15,12 +15,16 @@ def keep_successes(queries, failures):
     return filtered
 
 def compute_scores(queries, failures):
-    averages = np.mean(queries, axis=1)
+    successful = np.copy(queries)
+    # replace failed experiments by nan
+    successful[failures == 1] = np.nan
+    # compute scores ignoring fails
+    averages = np.nanmean(successful, axis=1)
     s1_scores = np.sum(averages, axis=0)
 
-    maxima = np.max(averages, axis=1)
+    maxima = np.nanmax(averages, axis=1)
     s2_scores = np.sum(averages / maxima[:, np.newaxis], axis=0)
-
+    # compute penalized s2 score by factoring in fails
     fails = np.sum(np.mean(failures,axis=1), axis=0)
     s2_scores_penalized = s2_scores + fails
     return (s1_scores, s2_scores, s2_scores_penalized)
