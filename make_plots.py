@@ -4,6 +4,11 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 
 import argparse
+import pathlib
+import itertools
+import os
+
+from aalpy.utils.FileHandler import load_automaton_from_file
 
 PROTOCOLS = ["tls", "mqtt", "tcp", "dtls"]
 
@@ -96,6 +101,27 @@ def make_plots(base_method, results_dir, protocols):
             scores = np.array([s1_scores, s2_scores, s2_scores_penalized]).T
             df = pd.DataFrame(scores, columns=["S1", "S2", "S2_Penalized"], index=orcs)
             draw_plots(df, curdir)
+            if protocol == "DTLS":
+                # more size-specific results
+                modeldir = pathlib.Path("./DotModels/DTLS")
+                files = list(modeldir.iterdir())
+                models = [load_automaton_from_file(f, 'mealy') for f in files]
+                sizes = [m.size for m in models]
+                # order which experiments were run in
+                indexed = sorted(list(enumerate(sizes)), key=lambda x: x[1])
+                groups = itertools.groupby(indexed, key=lambda x: x[1] // 20)
+                for k, group in groups:
+                    id = (k * 20, (k+1) * 20)
+                    indices = np.array(list(map(lambda x: x[0], group)))
+                    ms = measurements[indices]
+                    fs = failures[indices]
+                    (s1_scores, s2_scores, s2_scores_penalized) = compute_scores(ms, fs)
+                    scores = np.array([s1_scores, s2_scores, s2_scores_penalized]).T
+                    df = pd.DataFrame(scores, columns=["S1", "S2", "S2_Penalized"], index=orcs)
+                    if not os.path.exists(f'{curdir}/sizes_{id[0]}_{id[1]}'):
+                        os.makedirs(f'{curdir}/sizes_{id[0]}_{id[1]}')
+                    draw_plots(df, f'{curdir}/sizes_{id[0]}_{id[1]}')
+
 
 
 if __name__ == "__main__":
