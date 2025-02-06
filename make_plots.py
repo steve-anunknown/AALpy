@@ -89,11 +89,6 @@ def make_plots(base_method, results_dir, protocols):
         for protocol in protocols:
             protocol = protocol.upper()
             curdir = f"{results_dir}/{method}/{protocol}"
-            measurements = np.load(f"{curdir}/eq_queries.npy")
-
-        for protocol in protocols:
-            protocol = protocol.upper()
-            curdir = f"{results_dir}/{method}/{protocol}"
             # shape of measurements is (num_models, num_runs, num_oracles)
             measurements = np.load(f"{curdir}/eq_queries.npy")
             failures = np.load(f"{curdir}/failures.npy")
