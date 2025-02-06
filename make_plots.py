@@ -4,6 +4,11 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 
 import argparse
+import pathlib
+import itertools
+import os
+
+from aalpy.utils.FileHandler import load_automaton_from_file
 
 PROTOCOLS = ["tls", "mqtt", "tcp", "dtls"]
 
@@ -49,6 +54,21 @@ def draw_plots(data, results_dir):
             name = f'{score.lower()}_scores{"" if not zoom else "_zoomed"}'
             plt.savefig(f"{results_dir}/{name}.pdf", format="pdf")
             plt.close()
+    oracles = data.index
+    s2 = data["S2"]
+    s2p = data["S2_Penalized"]
+    new = pd.DataFrame({"oracles": oracles, "S2": s2, "S2_Penalized": s2p})
+    melted = new.melt(id_vars="oracles", value_vars=["S2", "S2_Penalized"])
+    plt.figure(figsize=(8, 6))
+    sns.barplot(x="oracles", y="value", hue="variable", data=melted, palette="viridis")
+    plt.title("S2 Scores", fontsize=16)
+    plt.xlabel("Oracle", fontsize=12)
+    plt.ylabel("Score", fontsize=12)
+    maxdiff = max(melted["value"].max() - melted["value"].min(), 0.1)
+    plt.ylim(melted["value"].min() - 0.1 * maxdiff, melted["value"].max() + 0.1 * maxdiff)
+    plt.tight_layout()
+    plt.savefig(f"{results_dir}/s2_scores_together.pdf", format="pdf")
+    plt.close()
 
 
 def make_plots(base_method, results_dir, protocols):
@@ -83,11 +103,6 @@ def make_plots(base_method, results_dir, protocols):
         for protocol in protocols:
             protocol = protocol.upper()
             curdir = f"{results_dir}/{method}/{protocol}"
-            measurements = np.load(f"{curdir}/eq_queries.npy")
-
-        for protocol in protocols:
-            protocol = protocol.upper()
-            curdir = f"{results_dir}/{method}/{protocol}"
             # shape of measurements is (num_models, num_runs, num_oracles)
             measurements = np.load(f"{curdir}/eq_queries.npy")
             failures = np.load(f"{curdir}/failures.npy")
@@ -95,6 +110,27 @@ def make_plots(base_method, results_dir, protocols):
             scores = np.array([s1_scores, s2_scores, s2_scores_penalized]).T
             df = pd.DataFrame(scores, columns=["S1", "S2", "S2_Penalized"], index=orcs)
             draw_plots(df, curdir)
+            if protocol == "DTLS":
+                # more size-specific results
+                modeldir = pathlib.Path("./DotModels/DTLS")
+                files = list(modeldir.iterdir())
+                models = [load_automaton_from_file(f, 'mealy') for f in files]
+                sizes = [m.size for m in models]
+                # order which experiments were run in
+                indexed = sorted(list(enumerate(sizes)), key=lambda x: x[1])
+                groups = itertools.groupby(indexed, key=lambda x: x[1] // 20)
+                for k, group in groups:
+                    id = (k * 20, (k+1) * 20)
+                    indices = np.array(list(map(lambda x: x[0], group)))
+                    ms = measurements[indices]
+                    fs = failures[indices]
+                    (s1_scores, s2_scores, s2_scores_penalized) = compute_scores(ms, fs)
+                    scores = np.array([s1_scores, s2_scores, s2_scores_penalized]).T
+                    df = pd.DataFrame(scores, columns=["S1", "S2", "S2_Penalized"], index=orcs)
+                    if not os.path.exists(f'{curdir}/sizes_{id[0]}_{id[1]}'):
+                        os.makedirs(f'{curdir}/sizes_{id[0]}_{id[1]}')
+                    draw_plots(df, f'{curdir}/sizes_{id[0]}_{id[1]}')
+
 
 
 if __name__ == "__main__":
