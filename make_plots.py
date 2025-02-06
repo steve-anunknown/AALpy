@@ -54,6 +54,21 @@ def draw_plots(data, results_dir):
             name = f'{score.lower()}_scores{"" if not zoom else "_zoomed"}'
             plt.savefig(f"{results_dir}/{name}.pdf", format="pdf")
             plt.close()
+    oracles = data.index
+    s2 = data["S2"]
+    s2p = data["S2_Penalized"]
+    new = pd.DataFrame({"oracles": oracles, "S2": s2, "S2_Penalized": s2p})
+    melted = new.melt(id_vars="oracles", value_vars=["S2", "S2_Penalized"])
+    plt.figure(figsize=(8, 6))
+    sns.barplot(x="oracles", y="value", hue="variable", data=melted, palette="viridis")
+    plt.title("S2 Scores", fontsize=16)
+    plt.xlabel("Oracle", fontsize=12)
+    plt.ylabel("Score", fontsize=12)
+    maxdiff = max(melted["value"].max() - melted["value"].min(), 0.1)
+    plt.ylim(melted["value"].min() - 0.1 * maxdiff, melted["value"].max() + 0.1 * maxdiff)
+    plt.tight_layout()
+    plt.savefig(f"{results_dir}/s2_scores_together.pdf", format="pdf")
+    plt.close()
 
 
 def make_plots(base_method, results_dir, protocols):
