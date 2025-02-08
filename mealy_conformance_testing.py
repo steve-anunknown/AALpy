@@ -3,7 +3,7 @@ import sys
 import pathlib
 import numpy as np
 import multiprocessing as mp
-from tqdm import tqdm
+from rich.progress import Progress
 
 # import argument parser
 import argparse
@@ -199,28 +199,34 @@ def main():
     MB_QUERIES = np.zeros((len(FILES), TIMES, NUM_ORACLES))
     FAILURES = np.zeros((len(FILES), TIMES, NUM_ORACLES))
 
-    # iterate over the models
-    for index, (model, file) in tqdm(enumerate(zip(MODELS, FILES))):
-        # these variables can be shared among the processes
-        prot = file.parent.stem
-        # repeat the experiments to gather statistics
-        for trial in range(TIMES):
+    MAX_FILENAME = max(list(map(lambda x: len(x.name), FILES)))
+    with Progress() as progress:
+        bar = progress.add_task("Learning Model ", total=len(FILES)*TIMES)
+        # iterate over the models
+        for index, (model, file) in enumerate(zip(MODELS, FILES)):
+            # these variables can be shared among the processes
+            prot = file.parent.stem
+            # repeat the experiments to gather statistics
+            progress.update(bar, description=f"Learning Model {file.name.ljust(MAX_FILENAME)}")
+            for trial in range(TIMES):
 
-            results = do_learning_experiments(model, (prot, file.stem))
+                results = do_learning_experiments(model, (prot, file.stem))
 
-            for i, eq_queries, mb_queries, failure, hyps, cexs in results:
-                EQ_QUERIES[index, trial, i] = eq_queries
-                MB_QUERIES[index, trial, i] = mb_queries
-                FAILURES[index, trial, i] = failure
+                for i, eq_queries, mb_queries, failure, hyps, cexs in results:
+                    EQ_QUERIES[index, trial, i] = eq_queries
+                    MB_QUERIES[index, trial, i] = mb_queries
+                    FAILURES[index, trial, i] = failure
 
-                if SAVE_INTERMEDIATE_HYPOTHESES:
-                    MODEL_RES_DIR = f"./results/{BASE_METHOD}/{prot}/{file.stem}/trial_{trial}/oracle_{i}"
-                    if not os.path.exists(MODEL_RES_DIR):
-                        os.makedirs(MODEL_RES_DIR)
-                    for j, (hyp, cex) in enumerate(zip(hyps, cexs)):
-                        save_automaton_to_file(hyp, f"{MODEL_RES_DIR}/h{j}.dot", "dot")
-                        with open(f"{MODEL_RES_DIR}/cex{j}.txt", "w") as f:
-                            f.write(str(cex))
+                    if SAVE_INTERMEDIATE_HYPOTHESES:
+                        MODEL_RES_DIR = f"./results/{BASE_METHOD}/{prot}/{file.stem}/trial_{trial}/oracle_{i}"
+                        if not os.path.exists(MODEL_RES_DIR):
+                            os.makedirs(MODEL_RES_DIR)
+                        for j, (hyp, cex) in enumerate(zip(hyps, cexs)):
+                            save_automaton_to_file(hyp, f"{MODEL_RES_DIR}/h{j}.dot", "dot")
+                            with open(f"{MODEL_RES_DIR}/cex{j}.txt", "w") as f:
+                                f.write(str(cex))
+                progress.update(bar, advance=1)
+        progress.update(bar, completed=len(FILES) * TIMES)
 
     prev = 0
     for prot in PROTOCOLS:
