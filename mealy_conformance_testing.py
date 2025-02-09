@@ -1,9 +1,10 @@
 import os
+import gc
 import sys
 import pathlib
 import numpy as np
 import multiprocessing as mp
-from tqdm import tqdm
+from rich.progress import Progress
 
 # import argument parser
 import argparse
@@ -18,7 +19,7 @@ from aalpy.oracles.WpMethodEqOracle import (
     WpMethodDiffFirstEqOracle,
     WpMethodTSDiffEqOracle,
     RandomWpMethodEqOracle,
-    RandomWpMethodDiffFirstEqOracle,
+    StochasticWpMethodEqOracle,
 )
 from aalpy.oracles.StochasticStateCoverageEqOracle import (
     StochasticStateCoverageEqOracle,
@@ -82,7 +83,7 @@ WALK_LEN = {"TCP": 50, "TLS": 10, "MQTT": 20, "DTLS": 50}
 METHOD_TO_ORACLES = {
     "wmethod": 2,
     "wpmethod": 3,
-    "rwpmethod": 2,
+    "rwpmethod": 4,
     "state_coverage": 4,
 }
 
@@ -151,7 +152,9 @@ def do_learning_experiments(model, prot):
         else:
             eq_oracles = [
                 RandomWp(alphabet, suls[0], wl, 1, wpr),
-                RandomWpDiffFirst(alphabet, suls[1], wl, 1, wpr),
+                LinearWp(alphabet, suls[1], wl, 1, wpr),
+                SquareWp(alphabet, suls[2], wl, 1, wpr),
+                ExponentialWp(alphabet, suls[3], wl, 1, wpr),
             ]
     elif BASE_METHOD == "wmethod":
         max_size = model.size + 2
@@ -183,6 +186,7 @@ def do_learning_experiments(model, prot):
         workers = mp.cpu_count()
         with mp.Pool(workers) as pool:
             results = pool.starmap(process_oracle, tasks)
+        gc.collect()
     else:
         results = [
             process_oracle(alphabet, sul, oracle, model.size, i)
@@ -208,28 +212,34 @@ def main():
     MB_QUERIES = np.zeros((len(FILES), TIMES, NUM_ORACLES))
     FAILURES = np.zeros((len(FILES), TIMES, NUM_ORACLES))
 
-    # iterate over the models
-    for index, (model, file) in tqdm(enumerate(zip(MODELS, FILES))):
-        # these variables can be shared among the processes
-        prot = file.parent.stem
-        # repeat the experiments to gather statistics
-        for trial in range(TIMES):
+    MAX_FILENAME = max(list(map(lambda x: len(x.name), FILES)))
+    with Progress() as progress:
+        bar = progress.add_task("Learning Model ", total=len(FILES)*TIMES)
+        # iterate over the models
+        for index, (model, file) in enumerate(zip(MODELS, FILES)):
+            # these variables can be shared among the processes
+            prot = file.parent.stem
+            # repeat the experiments to gather statistics
+            progress.update(bar, description=f"Learning Model {file.name.ljust(MAX_FILENAME)}")
+            for trial in range(TIMES):
 
-            results = do_learning_experiments(model, (prot, file.stem))
+                results = do_learning_experiments(model, (prot, file.stem))
 
-            for i, eq_queries, mb_queries, failure, hyps, cexs in results:
-                EQ_QUERIES[index, trial, i] = eq_queries
-                MB_QUERIES[index, trial, i] = mb_queries
-                FAILURES[index, trial, i] = failure
+                for i, eq_queries, mb_queries, failure, hyps, cexs in results:
+                    EQ_QUERIES[index, trial, i] = eq_queries
+                    MB_QUERIES[index, trial, i] = mb_queries
+                    FAILURES[index, trial, i] = failure
 
-                if SAVE_INTERMEDIATE_HYPOTHESES:
-                    MODEL_RES_DIR = f"./results/{BASE_METHOD}/{prot}/{file.stem}/trial_{trial}/oracle_{i}"
-                    if not os.path.exists(MODEL_RES_DIR):
-                        os.makedirs(MODEL_RES_DIR)
-                    for j, (hyp, cex) in enumerate(zip(hyps, cexs)):
-                        save_automaton_to_file(hyp, f"{MODEL_RES_DIR}/h{j}.dot", "dot")
-                        with open(f"{MODEL_RES_DIR}/cex{j}.txt", "w") as f:
-                            f.write(str(cex))
+                    if SAVE_INTERMEDIATE_HYPOTHESES:
+                        MODEL_RES_DIR = f"./results/{BASE_METHOD}/{prot}/{file.stem}/trial_{trial}/oracle_{i}"
+                        if not os.path.exists(MODEL_RES_DIR):
+                            os.makedirs(MODEL_RES_DIR)
+                        for j, (hyp, cex) in enumerate(zip(hyps, cexs)):
+                            save_automaton_to_file(hyp, f"{MODEL_RES_DIR}/h{j}.dot", "dot")
+                            with open(f"{MODEL_RES_DIR}/cex{j}.txt", "w") as f:
+                                f.write(str(cex))
+                progress.update(bar, advance=1)
+        progress.update(bar, completed=len(FILES) * TIMES)
 
     prev = 0
     for prot in PROTOCOLS:
@@ -388,10 +398,22 @@ if __name__ == "__main__":
             ):
                 super().__init__(alphabet, sul, expected_length, min_length, bound)
 
-        class RandomWpDiffFirst(RandomWpMethodDiffFirstEqOracle):
+        class LinearWp(StochasticWpMethodEqOracle):
             def __init__(
                 self, alphabet, sul, expected_length=10, min_length=1, bound=1000
             ):
-                super().__init__(alphabet, sul, expected_length, min_length, bound)
+                super().__init__(alphabet, sul, expected_length, min_length, bound, prob_function="linear")
+
+        class SquareWp(StochasticWpMethodEqOracle):
+            def __init__(
+                self, alphabet, sul, expected_length=10, min_length=1, bound=1000
+            ):
+                super().__init__(alphabet, sul, expected_length, min_length, bound, prob_function="square")
+
+        class ExponentialWp(StochasticWpMethodEqOracle):
+            def __init__(
+                self, alphabet, sul, expected_length=10, min_length=1, bound=1000
+            ):
+                super().__init__(alphabet, sul, expected_length, min_length, bound, prob_function="exponential")
 
     main()
