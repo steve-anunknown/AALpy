@@ -151,10 +151,10 @@ def do_learning_experiments(model, prot):
             ]
         else:
             eq_oracles = [
-                RandomWp(alphabet, suls[0], wl, 1, wpr),
-                LinearWp(alphabet, suls[1], wl, 1, wpr),
-                SquareWp(alphabet, suls[2], wl, 1, wpr),
-                ExponentialWp(alphabet, suls[3], wl, 1, wpr),
+                RandomWp(alphabet, suls[0], 10, 3, wpr),
+                LinearWp(alphabet, suls[1], 10, 3, wpr),
+                SquareWp(alphabet, suls[2], 10, 3, wpr),
+                ExponentialWp(alphabet, suls[3], 10, 3, wpr),
             ]
     elif BASE_METHOD == "wmethod":
         max_size = model.size + 2
