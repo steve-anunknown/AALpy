@@ -23,6 +23,9 @@ def compute_scores(queries, failures):
     successful = np.copy(queries)
     # replace failed experiments by nan
     successful[failures == 1] = np.nan
+    mask = np.all(np.isnan(successful), axis=1)
+    keep = ~np.any(mask, axis=1)
+    successful = successful[keep]
     # compute scores ignoring fails
     averages = np.nanmean(successful, axis=1)
     s1_scores = np.sum(averages, axis=0)
@@ -79,7 +82,7 @@ def make_plots(base_method, results_dir, protocols):
     elif base_method == "wpmethod":
         oracles = ["Normal", "Reverse", "TSDiff"] # add more later
     elif base_method == "rwpmethod":
-        oracles = ["Normal", "New First"]
+        oracles = ["Normal", "Linear", "Quadratic", "Exponential"]
     else:
         oracles = [
             ["Random", "Linear", "Quadratic", "Exponential", "Inverse"], # state_coverage
