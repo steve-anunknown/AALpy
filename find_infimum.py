@@ -22,7 +22,7 @@ from aalpy.oracles.StochasticStateCoverageEqOracle import (
 )
 from aalpy.oracles.WpMethodEqOracle import (
     RandomWpMethodEqOracle,
-    RandomWpMethodDiffFirstEqOracle,
+    StochasticWpMethodEqOracle,
 )
 from aalpy.SULs.AutomataSUL import AutomatonSUL
 from aalpy.utils.FileHandler import load_automaton_from_file
@@ -42,7 +42,7 @@ class ConditionalArgumentAction(argparse.Action):
         # Define conditional constraints
         variants = {
             "state_coverage": ["linear", "exponential", "square", "random"],
-            "rwpmethod": ["normal", "diff"],
+            "rwpmethod": ["linear", "exponential", "square", "random"],
         }
 
         # Get the dependent parameter's value
@@ -81,24 +81,14 @@ def run_experiment(models, lower_bound, walk_len, method, variant):
                     prob_function=variant,
                 )
             elif method == "rwpmethod":
-                if variant == "normal":
-                    eq_oracle = RandomWpMethodEqOracle(
-                        alphabet,
-                        sul,
-                        expected_length=walk_len,
-                        min_length=1,
-                        bound=lower_bound,
-                    )
-                elif variant == "diff":
-                    eq_oracle = RandomWpMethodDiffFirstEqOracle(
-                        alphabet,
-                        sul,
-                        expected_length=walk_len,
-                        min_length=1,
-                        bound=lower_bound,
-                    )
-                else:
-                    raise ValueError(f"Unknown variant {variant} for rwpmethod")
+                eq_oracle = StochasticWpMethodEqOracle(
+                    alphabet,
+                    sul,
+                    expected_length=walk_len,
+                    min_length=1,
+                    bound=lower_bound,
+                    prob_function=variant,
+                )
             learned_model = run_Lstar(
                 alphabet,
                 sul,
