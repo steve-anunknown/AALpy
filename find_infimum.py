@@ -84,8 +84,8 @@ def run_experiment(models, lower_bound, walk_len, method, variant):
                 eq_oracle = StochasticWpMethodEqOracle(
                     alphabet,
                     sul,
-                    expected_length=walk_len,
-                    min_length=1,
+                    expected_length=10,
+                    min_length=3,
                     bound=lower_bound,
                     prob_function=variant,
                 )
