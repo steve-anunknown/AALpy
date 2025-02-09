@@ -1,4 +1,5 @@
 import os
+import gc
 import sys
 import pathlib
 import numpy as np
@@ -17,6 +18,8 @@ from aalpy.oracles.WpMethodEqOracle import (
     WpMethodEqOracle,
     WpMethodDiffFirstEqOracle,
     WpMethodTSDiffEqOracle,
+    RandomWpMethodEqOracle,
+    StochasticWpMethodEqOracle,
 )
 from aalpy.oracles.StochasticStateCoverageEqOracle import (
     StochasticStateCoverageEqOracle,
@@ -80,6 +83,7 @@ WALK_LEN = {"TCP": 50, "TLS": 10, "MQTT": 20, "DTLS": 50}
 METHOD_TO_ORACLES = {
     "wmethod": 2,
     "wpmethod": 3,
+    "rwpmethod": 4,
     "state_coverage": 4,
 }
 
@@ -129,7 +133,7 @@ def do_learning_experiments(model, prot):
     # create a copy of the SUL for each oracle
     suls = [AutomatonSUL(model) for _ in range(NUM_ORACLES)]
     # initialize the oracles
-    if BASE_METHOD == "state_coverage":
+    if BASE_METHOD == "state_coverage" or BASE_METHOD == "rwpmethod":
         wl = WALK_LEN[prot[0]]
         if prot[0] == "DTLS":
             wpr = DTLS_MODELS(model.size)
@@ -137,13 +141,21 @@ def do_learning_experiments(model, prot):
             wpr = TCP_MODELS[prot[1]]
         else:
             wpr = WALKS_PER_ROUND[prot[0]]
-        eq_oracles = [
-            StochasticRandom(alphabet, suls[0], wpr, wl),
-            StochasticLinear(alphabet, suls[1], wpr, wl),
-            StochasticSquare(alphabet, suls[2], wpr, wl),
-            StochasticExponential(alphabet, suls[3], wpr, wl),
-            # StochasticInverse(alphabet, suls[4], wpr, wl),
-        ]
+        if BASE_METHOD == "state_coverage":
+            eq_oracles = [
+                StochasticRandom(alphabet, suls[0], wpr, wl),
+                StochasticLinear(alphabet, suls[1], wpr, wl),
+                StochasticSquare(alphabet, suls[2], wpr, wl),
+                StochasticExponential(alphabet, suls[3], wpr, wl),
+                # StochasticInverse(alphabet, suls[4], wpr, wl),
+            ]
+        else:
+            eq_oracles = [
+                RandomWp(alphabet, suls[0], wl, 1, wpr),
+                LinearWp(alphabet, suls[1], wl, 1, wpr),
+                SquareWp(alphabet, suls[2], wl, 1, wpr),
+                ExponentialWp(alphabet, suls[3], wl, 1, wpr),
+            ]
     elif BASE_METHOD == "wmethod":
         max_size = model.size + 2
         eq_oracles = [
@@ -174,6 +186,7 @@ def do_learning_experiments(model, prot):
         workers = mp.cpu_count()
         with mp.Pool(workers) as pool:
             results = pool.starmap(process_oracle, tasks)
+        gc.collect()
     else:
         results = [
             process_oracle(alphabet, sul, oracle, model.size, i)
@@ -291,9 +304,9 @@ if __name__ == "__main__":
         "-b",
         "--base_method",
         type=str,
-        choices=["state_coverage", "wmethod", "wpmethod"],
+        choices=["state_coverage", "wmethod", "wpmethod", "rwpmethod"],
         default="state_coverage",
-        help="Base method to use. Can be 'state_coverage' or 'wmethod'. Defaults to 'state_coverage'.",
+        help="Base method to use. Defaults to 'state_coverage'.",
     )
 
     parser.add_argument(
@@ -376,5 +389,31 @@ if __name__ == "__main__":
         class WpMethodTSDiff(WpMethodTSDiffEqOracle):
             def __init__(self, alphabet, sul, max_model_size):
                 super().__init__(alphabet, sul, max_model_size)
+
+    elif BASE_METHOD == "rwpmethod":
+
+        class RandomWp(RandomWpMethodEqOracle):
+            def __init__(
+                self, alphabet, sul, expected_length=10, min_length=1, bound=1000
+            ):
+                super().__init__(alphabet, sul, expected_length, min_length, bound)
+
+        class LinearWp(StochasticWpMethodEqOracle):
+            def __init__(
+                self, alphabet, sul, expected_length=10, min_length=1, bound=1000
+            ):
+                super().__init__(alphabet, sul, expected_length, min_length, bound, prob_function="linear")
+
+        class SquareWp(StochasticWpMethodEqOracle):
+            def __init__(
+                self, alphabet, sul, expected_length=10, min_length=1, bound=1000
+            ):
+                super().__init__(alphabet, sul, expected_length, min_length, bound, prob_function="square")
+
+        class ExponentialWp(StochasticWpMethodEqOracle):
+            def __init__(
+                self, alphabet, sul, expected_length=10, min_length=1, bound=1000
+            ):
+                super().__init__(alphabet, sul, expected_length, min_length, bound, prob_function="exponential")
 
     main()

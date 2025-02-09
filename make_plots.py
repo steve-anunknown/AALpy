@@ -23,6 +23,9 @@ def compute_scores(queries, failures):
     successful = np.copy(queries)
     # replace failed experiments by nan
     successful[failures == 1] = np.nan
+    mask = np.all(np.isnan(successful), axis=1)
+    keep = ~np.any(mask, axis=1)
+    successful = successful[keep]
     # compute scores ignoring fails
     averages = np.nanmean(successful, axis=1)
     s1_scores = np.sum(averages, axis=0)
@@ -77,25 +80,19 @@ def make_plots(base_method, results_dir, protocols):
     elif base_method == "wmethod":
         oracles = ["Normal", "Reverse"]
     elif base_method == "wpmethod":
-        oracles = ["Normal", "Reverse", "TSDiff"]  # add more later
+        oracles = ["Normal", "Reverse", "TSDiff"] # add more later
+    elif base_method == "rwpmethod":
+        oracles = ["Normal", "Linear", "Quadratic", "Exponential"]
     else:
         oracles = [
-            [
-                "Random",
-                "Linear",
-                "Quadratic",
-                "Exponential",
-            ],  # state_coverage
-            ["Normal", "Reverse"],  # wmethod
-            ["Normal", "Reverse", "TSDiff"],  # wpmethod
+            ["Random", "Linear", "Quadratic", "Exponential", "Inverse"], # state_coverage
+            ["Normal", "Reverse"], # wmethod
+            ["Normal", "Reverse", "TSDiff"], # wpmethod
+            ["Normal", "New First"], # rwpmethod
         ]
     protocols = PROTOCOLS if protocols == "all" else [protocols]
     oracles = oracles if base_method == "all" else [oracles]
-    methods = (
-        ["state_coverage", "wmethod", "wpmethod"]
-        if base_method == "all"
-        else [base_method]
-    )
+    methods = ["state_coverage", "wmethod", "wpmethod", "rwpmethod"] if base_method == "all" else [base_method]
     for method, orcs in zip(methods, oracles):
         if protocols == ["combined"]:
             measurements = np.load(f"{results_dir}/{method}/eq_queries.npy")
@@ -153,7 +150,7 @@ if __name__ == "__main__":
         "-b",
         "--base_method",
         type=str,
-        choices=["state_coverage", "wmethod", "wpmethod", "all"],
+        choices=["state_coverage", "wmethod", "wpmethod", "rwpmethod", "all"],
         default="state_coverage",
         help="Results of base method to plot",
         required=True,

@@ -1,5 +1,6 @@
 from itertools import chain, tee, product
 import random
+import math
 
 from aalpy.base.Oracle import Oracle
 from aalpy.base.SUL import SUL
@@ -116,6 +117,7 @@ class WpMethodEqOracle(Oracle):
 
         return None
 
+
 class WpMethodTSDiffEqOracle(Oracle):
     """
     Implements the Wp-method equivalence oracle, but with a twist. In each equivalence query,
@@ -207,10 +209,10 @@ class RandomWpMethodEqOracle(Oracle):
         if not hypothesis.characterization_set:
             hypothesis.characterization_set = hypothesis.compute_characterization_set()
 
-        state_mapping = {}
-        for state in hypothesis.states:
-            char_set = state_characterization_set(hypothesis, self.alphabet, state)
-            state_mapping[state] = char_set
+        state_mapping = {
+            s: state_characterization_set(hypothesis, self.alphabet, s)
+            for s in hypothesis.states
+        }
 
         for _ in range(self.bound):
             state = random.choice(hypothesis.states)
@@ -221,31 +223,112 @@ class RandomWpMethodEqOracle(Oracle):
                 input += (letter,)
                 limit -= 1
             if random.random() > 0.5:
-                # global suffix
-                if not hypothesis.characterization_set:
-                    continue
+                # global suffix with characterization_set
                 input += random.choice(hypothesis.characterization_set)
             else:
                 # local suffix
                 _ = hypothesis.execute_sequence(hypothesis.initial_state, input)
-                current_state = hypothesis.current_state
-                if not state_mapping[current_state]:
-                    continue
-                input += random.choice(state_mapping[current_state])
+                input += random.choice(state_mapping[hypothesis.current_state])
 
             # execute the sequence
-            self.reset_hyp_and_sul(hypothesis)
-            outputs = []
-            for ind, letter in enumerate(input):
-                out_hyp = hypothesis.step(letter)
-                out_sul = self.sul.step(letter)
-                self.num_steps += 1
-
-                outputs.append(out_sul)
-                if out_hyp != out_sul:
-                    self.sul.post()
-                    return input[: ind + 1]
+            cex = self.execute_test_case(hypothesis, input)
+            if cex:
+                return cex
         return None
+
+
+class StochasticWpMethodEqOracle(Oracle):
+    """
+    Implements the Random Wp-Method but with a bias towards sampling new
+    states.
+    """
+
+    def linear(self, x, size):
+        fundamental = 2 / (size * (size + 1))
+        return (x + 1) * fundamental
+
+    def square(self, x, size):
+        fundamental = 6 / ((2 * size + 1) * size * (size + 1))
+        return ((x + 1) ** 2) * fundamental
+
+    def exponential(self, x, size):
+        fundamental = 1 / (2**size - 1)
+        return (2**x) * fundamental
+
+    def __init__(
+        self,
+        alphabet: list,
+        sul: SUL,
+        expected_length=10,
+        min_length=1,
+        bound=1000,
+        prob_function="random",
+    ):
+        super().__init__(alphabet, sul)
+        self.expected_length = expected_length
+        self.min_length = min_length
+        self.bound = bound
+        self.age_groups = []
+        assert prob_function in [
+            "linear",
+            "square",
+            "exponential",
+            "random",
+        ], "Probability function must be one of 'linear', 'square', 'exponential' or 'random'."
+        self.prob_function = (
+            getattr(self, prob_function) if prob_function != "random" else "random"
+        )
+
+    def find_cex(self, hypothesis):
+        if not hypothesis.characterization_set:
+            hypothesis.characterization_set = hypothesis.compute_characterization_set()
+
+        if not self.age_groups:
+            self.age_groups.append([s.state_id for s in hypothesis.states])
+        else:
+            new = []
+            for state in hypothesis.states:
+                if not any(state.state_id in p for p in self.age_groups):
+                    new.append(state.state_id)
+            self.age_groups.append(new)
+
+        if not self.prob_function == "random":
+            n = len(self.age_groups)
+            weights = [self.prob_function(i, n) for i in range(n)]
+            total = sum(weights)
+            assert math.isclose(
+                total, 1
+            ), f"Invalid probability function. Probabilities do not sum up to 1 but to {total}."
+
+        state_mapping = {
+            s: state_characterization_set(hypothesis, self.alphabet, s)
+            for s in hypothesis.states
+        }
+        for _ in range(self.bound):
+            if self.prob_function == "random":
+                state = random.choice(hypothesis.states)
+            else:
+                group = random.choices(self.age_groups, weights)[0]
+                id = random.choice(group)
+                state = hypothesis.get_state_by_id(id)
+            input = state.prefix
+            limit = self.min_length
+            while limit > 0 or random.random() > 1 / (self.expected_length + 1):
+                letter = random.choice(self.alphabet)
+                input += (letter,)
+                limit -= 1
+            if random.random() > 0.5:
+                # global suffix with characterization_set
+                input += random.choice(hypothesis.characterization_set)
+            else:
+                # local suffix
+                _ = hypothesis.execute_sequence(hypothesis.initial_state, input)
+                input += random.choice(state_mapping[hypothesis.current_state])
+
+            # execute the sequence
+            cex = self.execute_test_case(hypothesis, input)
+            if cex:
+                return cex
 
 
 class WpMethodDiffFirstEqOracle(Oracle):
