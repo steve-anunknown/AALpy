@@ -1,5 +1,6 @@
 from itertools import chain, tee, product
 import random
+import math
 
 from aalpy.base.Oracle import Oracle
 from aalpy.base.SUL import SUL
@@ -116,6 +117,7 @@ class WpMethodEqOracle(Oracle):
 
         return None
 
+
 class WpMethodTSDiffEqOracle(Oracle):
     """
     Implements the Wp-method equivalence oracle, but with a twist. In each equivalence query,
@@ -207,7 +209,10 @@ class RandomWpMethodEqOracle(Oracle):
         if not hypothesis.characterization_set:
             hypothesis.characterization_set = hypothesis.compute_characterization_set()
 
-        state_mapping = {s : state_characterization_set(hypothesis, self.alphabet, s) for s in hypothesis.states}
+        state_mapping = {
+            s: state_characterization_set(hypothesis, self.alphabet, s)
+            for s in hypothesis.states
+        }
 
         for _ in range(self.bound):
             state = random.choice(hypothesis.states)
@@ -231,19 +236,48 @@ class RandomWpMethodEqOracle(Oracle):
                 return cex
         return None
 
-class RandomWpMethodDiffFirstEqOracle(Oracle):
+
+class StochasticWpMethodEqOracle(Oracle):
     """
     Implements the Random Wp-Method but with a bias towards sampling new
     states.
     """
+
+    def linear(self, x, size):
+        fundamental = 2 / (size * (size + 1))
+        return (x + 1) * fundamental
+
+    def square(self, x, size):
+        fundamental = 6 / ((2 * size + 1) * size * (size + 1))
+        return ((x + 1) ** 2) * fundamental
+
+    def exponential(self, x, size):
+        fundamental = 1 / (2**size - 1)
+        return (2**x) * fundamental
+
     def __init__(
-        self, alphabet: list, sul: SUL, expected_length=10, min_length=1, bound=1000
+        self,
+        alphabet: list,
+        sul: SUL,
+        expected_length=10,
+        min_length=1,
+        bound=1000,
+        prob_function="random",
     ):
         super().__init__(alphabet, sul)
         self.expected_length = expected_length
         self.min_length = min_length
         self.bound = bound
         self.age_groups = []
+        assert prob_function in [
+            "linear",
+            "square",
+            "exponential",
+            "random",
+        ], "Probability function must be one of 'linear', 'square', 'exponential' or 'random'."
+        self.prob_function = (
+            getattr(self, prob_function) if prob_function != "random" else "random"
+        )
 
     def find_cex(self, hypothesis):
         if not hypothesis.characterization_set:
@@ -258,10 +292,25 @@ class RandomWpMethodDiffFirstEqOracle(Oracle):
                     new.append(state.state_id)
             self.age_groups.append(new)
 
-        state_mapping = {s : state_characterization_set(hypothesis, self.alphabet, s) for s in hypothesis.states}
-        weights = [1 for g in self.age_groups[:-1] for _ in g] + [2 for _ in self.age_groups[-1]]
+        if not self.prob_function == "random":
+            n = len(self.age_groups)
+            weights = [self.prob_function(i, n) for i in range(n)]
+            total = sum(weights)
+            assert math.isclose(
+                total, 1
+            ), f"Invalid probability function. Probabilities do not sum up to 1 but to {total}."
+
+        state_mapping = {
+            s: state_characterization_set(hypothesis, self.alphabet, s)
+            for s in hypothesis.states
+        }
         for _ in range(self.bound):
-            state = random.choices(hypothesis.states, weights)[0]
+            if self.prob_function == "random":
+                state = random.choice(hypothesis.states)
+            else:
+                group = random.choices(self.age_groups, weights)[0]
+                id = random.choice(group)
+                state = hypothesis.get_state_by_id(id)
             input = state.prefix
             limit = self.min_length
             while limit > 0 or random.random() > 1 / (self.expected_length + 1):
@@ -280,6 +329,7 @@ class RandomWpMethodDiffFirstEqOracle(Oracle):
             cex = self.execute_test_case(hypothesis, input)
             if cex:
                 return cex
+
 
 class WpMethodDiffFirstEqOracle(Oracle):
     """
