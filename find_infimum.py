@@ -26,6 +26,7 @@ from aalpy.oracles.WpMethodEqOracle import (
 )
 from aalpy.SULs.AutomataSUL import AutomatonSUL
 from aalpy.utils.FileHandler import load_automaton_from_file
+from aalpy.utils import bisimilar
 
 PROTOCOLS = ["tls", "mqtt", "tcp", "dtls"]
 WALK_LEN = {"tcp": 50, "tls": 10, "mqtt": 15, "dtls": 40}
@@ -69,7 +70,6 @@ def run_experiment(models, lower_bound, walk_len, method, variant):
     """
     for _ in range(TRIALS):
         for _, model in enumerate(models):
-            correct_size = model.size
             alphabet = model.get_input_alphabet()
             sul = AutomatonSUL(model)
             if method == "state_coverage":
@@ -97,7 +97,7 @@ def run_experiment(models, lower_bound, walk_len, method, variant):
                 cache_and_non_det_check=False,
                 print_level=0,
             )
-            failure = learned_model.size != correct_size
+            failure = not bisimilar(learned_model, sul.automaton)
             if failure:
                 return False
 

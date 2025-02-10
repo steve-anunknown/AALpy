@@ -29,6 +29,7 @@ from aalpy.base.SUL import CacheSUL
 from aalpy.learning_algs.deterministic.LStar import run_Lstar
 from aalpy.learning_algs.deterministic.KV import run_KV
 from aalpy.utils.FileHandler import load_automaton_from_file, save_automaton_to_file
+from aalpy.utils import bisimilar
 
 # print up to 1 decimal point
 np.set_printoptions(precision=1)
@@ -100,7 +101,7 @@ def process_oracle(alphabet, sul, oracle, correct_size, i):
         correct_size: correct size of the model
         i: index of the oracle
     """
-    _, info = run_Lstar(
+    model, info = run_Lstar(
         alphabet,
         sul,
         oracle,
@@ -114,7 +115,7 @@ def process_oracle(alphabet, sul, oracle, correct_size, i):
         i,
         info["queries_eq_oracle"],
         info["queries_learning"],
-        1 if info["automaton_size"] != correct_size else 0,
+        not bisimilar(model, sul.automaton),
         info["intermediate_hypotheses"],
         info["counterexamples"],
     )
