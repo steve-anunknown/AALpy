@@ -25,18 +25,9 @@ from aalpy.oracles.StochasticStateCoverageEqOracle import (
     StochasticStateCoverageEqOracle,
 )
 from aalpy.SULs.AutomataSUL import AutomatonSUL
-from aalpy.base.SUL import CacheSUL
 from aalpy.learning_algs.deterministic.LStar import run_Lstar
-from aalpy.learning_algs.deterministic.KV import run_KV
 from aalpy.utils.FileHandler import load_automaton_from_file, save_automaton_to_file
 from aalpy.utils import bisimilar
-
-# print up to 1 decimal point
-np.set_printoptions(precision=1)
-# do not print in scientific notation
-np.set_printoptions(suppress=True)
-# print up to 3 decimal point
-# pd.options.display.float_format = '{:.3f}'.format
 
 # with uniform random
 # TCP_Linux_Client is 10240 -> 12000 for good measure
@@ -110,7 +101,6 @@ def process_oracle(alphabet, sul, oracle, correct_size, i):
         return_data=True,
         print_level=0,
     )
-    # _, info = run_KV(alphabet, sul, oracle, 'mealy', return_data=True, print_level=0)
     return (
         i,
         info["queries_eq_oracle"],
@@ -306,8 +296,8 @@ if __name__ == "__main__":
         "--base_method",
         type=str,
         choices=["state_coverage", "wmethod", "wpmethod", "rwpmethod"],
-        default="state_coverage",
-        help="Base method to use. Defaults to 'state_coverage'.",
+        required=True,
+        help="Base method to use.",
     )
 
     parser.add_argument(
