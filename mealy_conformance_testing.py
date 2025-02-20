@@ -65,7 +65,6 @@ def DTLS_MODELS(size):
     else:
         raise ValueError("Invalid size for DTLS model")
 
-
 WALKS_PER_ROUND = {
     "TLS": 1,
     "MQTT": 3100,
@@ -188,21 +187,22 @@ def do_learning_experiments(model, prot):
 
     return results
 
+def clean_results(method):
+    for file in pathlib.Path(f"./results/{method}").iterdir():
+        if file.is_dir():
+            shutil.rmtree(file)
+        else:
+            file.unlink()
 
 def main():
     ROOT = os.getcwd() + "/DotModels"
-    # PROTOCOLS    = ["ASML", "TLS", "MQTT", "EMV", "TCP"]
-    PROTOCOLS = ["TLS", "MQTT"]
+    if FAMILY == "ALL":
+        PROTOCOLS = ["TCP", "TLS", "MQTT", "DTLS"]
+    else:
+        PROTOCOLS = [FAMILY]
 
-    # if the 'store_intermediate' flag is set to True
-    # clean the previous results, if they exist
-    if SAVE_INTERMEDIATE_HYPOTHESES:
-        for prot in PROTOCOLS:
-            for file in pathlib.Path(f"./results/{BASE_METHOD}/{prot}").iterdir():
-                if file.is_dir():
-                    shutil.rmtree(file)
-                else:
-                    file.unlink()
+    clean_results(BASE_METHOD)
+
     DIRS = [pathlib.Path(ROOT + "/" + prot) for prot in PROTOCOLS]
     FILES = [file for dir in DIRS for file in dir.iterdir()]
     FILES_PER_PROT = {
@@ -246,6 +246,8 @@ def main():
                 progress.update(bar, advance=1)
         progress.update(bar, completed=len(FILES) * TIMES)
 
+    # store the protocol specific results
+    # this works both for FAMILY == "ALL" and for a single family
     prev = 0
     for prot in PROTOCOLS:
         items = FILES_PER_PROT[prot]
@@ -270,22 +272,24 @@ def main():
         )
         prev += items
 
-    for array, name in zip(
-        [EQ_QUERIES, MB_QUERIES, FAILURES], ["eq_queries", "mb_queries", "failures"]
-    ):
-        averages = np.mean(array, axis=1)
-        std_devs = np.std(array, axis=1)
+    if FAMILY == "ALL":
+        # store these results only if all families are learned
+        for array, name in zip(
+            [EQ_QUERIES, MB_QUERIES, FAILURES], ["eq_queries", "mb_queries", "failures"]
+        ):
+            averages = np.mean(array, axis=1)
+            std_devs = np.std(array, axis=1)
 
-        np.save(f"./results/{BASE_METHOD}/{name}.npy", array)
-        np.save(f"./results/{BASE_METHOD}/{name}_averages.npy", averages)
-        np.save(f"./results/{BASE_METHOD}/{name}_std_devs.npy", std_devs)
-        if not "failures" == name:
-            s1_scores = np.sum(averages, axis=0)
-            maxima = np.max(averages, axis=1)
-            s2_scores = np.sum(averages / maxima[:, np.newaxis], axis=0)
+            np.save(f"./results/{BASE_METHOD}/{name}.npy", array)
+            np.save(f"./results/{BASE_METHOD}/{name}_averages.npy", averages)
+            np.save(f"./results/{BASE_METHOD}/{name}_std_devs.npy", std_devs)
+            if not "failures" == name:
+                s1_scores = np.sum(averages, axis=0)
+                maxima = np.max(averages, axis=1)
+                s2_scores = np.sum(averages / maxima[:, np.newaxis], axis=0)
 
-            np.save(f"./results/{BASE_METHOD}/{name}_s1_scores.npy", s1_scores)
-            np.save(f"./results/{BASE_METHOD}/{name}_s2_scores.npy", s2_scores)
+                np.save(f"./results/{BASE_METHOD}/{name}_s1_scores.npy", s1_scores)
+                np.save(f"./results/{BASE_METHOD}/{name}_s2_scores.npy", s2_scores)
 
 
 if __name__ == "__main__":
@@ -326,11 +330,21 @@ if __name__ == "__main__":
         help="Save intermediate results or not. Defaults to False.",
     )
 
+    parser.add_argument(
+        "-f",
+        "--family",
+        type=str,
+        choices=["tls", "mqtt", "tcp", "dtls", "all"],
+        required=True,
+        help="Family of models to learn.",
+    )
+
     args = parser.parse_args()
     TIMES = args.times
     PARALLEL = args.parallel
     BASE_METHOD = args.base_method
     SAVE_INTERMEDIATE_HYPOTHESES = args.save_intermediate
+    FAMILY = args.family.upper()
 
     NUM_ORACLES = METHOD_TO_ORACLES[BASE_METHOD]
 
