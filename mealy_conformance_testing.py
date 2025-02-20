@@ -1,6 +1,7 @@
 import os
 import gc
 import sys
+import shutil
 import pathlib
 import numpy as np
 import multiprocessing as mp
@@ -108,6 +109,7 @@ def process_oracle(alphabet, sul, oracle, correct_size, i):
         not bisimilar(model, sul.automaton),
         info["intermediate_hypotheses"],
         info["counterexamples"],
+        info["queries_per_round"],
     )
 
 
@@ -190,7 +192,17 @@ def do_learning_experiments(model, prot):
 def main():
     ROOT = os.getcwd() + "/DotModels"
     # PROTOCOLS    = ["ASML", "TLS", "MQTT", "EMV", "TCP"]
-    PROTOCOLS = ["TLS", "MQTT", "TCP", "DTLS"]
+    PROTOCOLS = ["TLS", "MQTT"]
+
+    # if the 'store_intermediate' flag is set to True
+    # clean the previous results, if they exist
+    if SAVE_INTERMEDIATE_HYPOTHESES:
+        for prot in PROTOCOLS:
+            for file in pathlib.Path(f"./results/{BASE_METHOD}/{prot}").iterdir():
+                if file.is_dir():
+                    shutil.rmtree(file)
+                else:
+                    file.unlink()
     DIRS = [pathlib.Path(ROOT + "/" + prot) for prot in PROTOCOLS]
     FILES = [file for dir in DIRS for file in dir.iterdir()]
     FILES_PER_PROT = {
@@ -202,6 +214,7 @@ def main():
     EQ_QUERIES = np.zeros((len(FILES), TIMES, NUM_ORACLES))
     MB_QUERIES = np.zeros((len(FILES), TIMES, NUM_ORACLES))
     FAILURES = np.zeros((len(FILES), TIMES, NUM_ORACLES))
+    QPR = np.empty((len(FILES), TIMES, NUM_ORACLES), dtype=object)
 
     MAX_FILENAME = max(list(map(lambda x: len(x.name), FILES)))
     with Progress() as progress:
@@ -216,10 +229,11 @@ def main():
 
                 results = do_learning_experiments(model, (prot, file.stem))
 
-                for i, eq_queries, mb_queries, failure, hyps, cexs in results:
+                for i, eq_queries, mb_queries, failure, hyps, cexs, qpr in results:
                     EQ_QUERIES[index, trial, i] = eq_queries
                     MB_QUERIES[index, trial, i] = mb_queries
                     FAILURES[index, trial, i] = failure
+                    QPR[index, trial, i] = qpr
 
                     if SAVE_INTERMEDIATE_HYPOTHESES:
                         MODEL_RES_DIR = f"./results/{BASE_METHOD}/{prot}/{file.stem}/trial_{trial}/oracle_{i}"
@@ -249,6 +263,10 @@ def main():
         np.save(
             f"{MODEL_RES_DIR}/failures.npy",
             FAILURES[prev : prev + items, :, :],
+        )
+        np.save(
+            f"{MODEL_RES_DIR}/queries_per_round.npy",
+            QPR[prev : prev + items, :, :],
         )
         prev += items
 
