@@ -1,1 +1,0 @@
-('RST(V,V,0)', 'ACK+RST(V,V,0)', 'CONNECT', 'CONNECT', 'SYN(V,V,0)', 'RCV', 'ACK+PSH(V,V,1)', 'CONNECT', 'SYN(V,V,0)', 'CLOSE')

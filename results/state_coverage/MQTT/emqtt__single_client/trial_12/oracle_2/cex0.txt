@@ -1,1 +1,1 @@
-('Connect ', 'PublishRetain ', 'DeleteRetained ', 'PublishQoS0 ', 'SubscribeRetained ', 'PublishRetain ', 'PublishQoS1 ', 'PublishRetain ', 'UnSubScribeRetained ', 'SubscribeRetained ')
+('Connect ', 'Subscribe ', 'SubscribeRetained ', 'Subscribe ', 'Subscribe ', 'DeleteRetained ', 'PublishRetain ', 'UnSubScribeRetained ', 'PublishQoS1 ', 'SubscribeRetained ')
