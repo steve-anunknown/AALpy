@@ -85,10 +85,10 @@ def make_plots(base_method, results_dir, protocols):
         oracles = ["Normal", "Linear", "Quadratic", "Exponential"]
     else:
         oracles = [
-            ["Random", "Linear", "Quadratic", "Exponential", "Inverse"], # state_coverage
-            ["Normal", "Reverse"], # wmethod
-            ["Normal", "Reverse", "TSDiff"], # wpmethod
-            ["Normal", "New First"], # rwpmethod
+            ["Random", "Linear", "Quadratic", "Exponential"], # state_coverage
+            ["Normal", "Reverse"],                            # wmethod
+            ["Normal", "Reverse", "TSDiff"],                  # wpmethod
+            ["Random", "Linear", "Quadratic", "Exponential"], # rwpmethod
         ]
     protocols = PROTOCOLS if protocols == "all" else [protocols]
     oracles = oracles if base_method == "all" else [oracles]
