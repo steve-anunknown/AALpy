@@ -175,7 +175,7 @@ def do_learning_experiments(model, prot):
             (alphabet, sul, oracle, model.size, i)
             for i, (sul, oracle) in enumerate(zip(suls, eq_oracles))
         ]
-        workers = mp.cpu_count()
+        workers = min(mp.cpu_count(), len(tasks))
         with mp.Pool(workers) as pool:
             results = pool.starmap(process_oracle, tasks)
         gc.collect()
@@ -197,7 +197,7 @@ def clean_results(method):
 def main():
     ROOT = os.getcwd() + "/DotModels"
     if FAMILY == "ALL":
-        PROTOCOLS = ["TCP", "TLS", "MQTT", "DTLS"]
+        PROTOCOLS = ["TLS", "MQTT", "TCP", "DTLS"]
     else:
         PROTOCOLS = [FAMILY]
 
