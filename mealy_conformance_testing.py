@@ -47,6 +47,12 @@ TCP_MODELS = {
 
 # with uniform random
 def DTLS_MODELS(size):
+    """
+    Generate the number of walks per round for the DTLS models.
+
+    Args:
+        size: size of the model
+    """
     # dtls for 80 < states <= 120 is 524288 -> 550000 for good measure
     if 80 < size <= 120:
         return 550000
@@ -65,12 +71,13 @@ def DTLS_MODELS(size):
     else:
         raise ValueError("Invalid size for DTLS model")
 
+
 WALKS_PER_ROUND = {
     "TLS": 1,
     "MQTT": 3100,
     "DTLS": 550000,
 }
-WALK_LEN = {"TCP": 50, "TLS": 10, "MQTT": 20, "DTLS": 50}
+# WALK_LEN = {"TCP": 50, "TLS": 10, "MQTT": 20, "DTLS": 50}
 
 METHOD_TO_ORACLES = {
     "wmethod": 2,
@@ -112,7 +119,7 @@ def process_oracle(alphabet, sul, oracle, correct_size, i):
     )
 
 
-def do_learning_experiments(model, prot):
+def do_learning_experiments(model, prot, trial):
     """
     Perform the learning experiments for the given model and alphabet.
 
@@ -126,7 +133,7 @@ def do_learning_experiments(model, prot):
     suls = [AutomatonSUL(model) for _ in range(NUM_ORACLES)]
     # initialize the oracles
     if BASE_METHOD == "state_coverage" or BASE_METHOD == "rwpmethod":
-        wl = WALK_LEN[prot[0]]
+        # wl = WALK_LEN[prot[0]]
         if prot[0] == "DTLS":
             wpr = DTLS_MODELS(model.size)
         elif prot[0] == "TCP":
@@ -135,18 +142,54 @@ def do_learning_experiments(model, prot):
             wpr = WALKS_PER_ROUND[prot[0]]
         if BASE_METHOD == "state_coverage":
             eq_oracles = [
-                StochasticRandom(alphabet, suls[0], wpr, wl),
-                StochasticLinear(alphabet, suls[1], wpr, wl),
-                StochasticSquare(alphabet, suls[2], wpr, wl),
-                StochasticExponential(alphabet, suls[3], wpr, wl),
+                StochasticRandom(
+                    alphabet, suls[0], wpr, 30, seed=hash((BASE_METHOD, 0, prot, trial))
+                ),
+                StochasticLinear(
+                    alphabet, suls[1], wpr, 30, seed=hash((BASE_METHOD, 1, prot, trial))
+                ),
+                StochasticSquare(
+                    alphabet, suls[2], wpr, 30, seed=hash((BASE_METHOD, 2, prot, trial))
+                ),
+                StochasticExponential(
+                    alphabet, suls[3], wpr, 30, seed=hash((BASE_METHOD, 3, prot, trial))
+                ),
                 # StochasticInverse(alphabet, suls[4], wpr, wl),
             ]
         else:
             eq_oracles = [
-                RandomWp(alphabet, suls[0], 10, 3, wpr),
-                LinearWp(alphabet, suls[1], 10, 3, wpr),
-                SquareWp(alphabet, suls[2], 10, 3, wpr),
-                ExponentialWp(alphabet, suls[3], 10, 3, wpr),
+                RandomWp(
+                    alphabet,
+                    suls[0],
+                    30,
+                    10,
+                    wpr,
+                    seed=hash((BASE_METHOD, 0, prot, trial)),
+                ),
+                LinearWp(
+                    alphabet,
+                    suls[1],
+                    30,
+                    10,
+                    wpr,
+                    seed=hash((BASE_METHOD, 1, prot, trial)),
+                ),
+                SquareWp(
+                    alphabet,
+                    suls[2],
+                    30,
+                    10,
+                    wpr,
+                    seed=hash((BASE_METHOD, 2, prot, trial)),
+                ),
+                ExponentialWp(
+                    alphabet,
+                    suls[3],
+                    30,
+                    10,
+                    wpr,
+                    seed=hash((BASE_METHOD, 3, prot, trial)),
+                ),
             ]
     elif BASE_METHOD == "wmethod":
         max_size = model.size + 2
@@ -187,12 +230,20 @@ def do_learning_experiments(model, prot):
 
     return results
 
+
 def clean_results(method):
+    """
+    Clean the results directory for the given method.
+
+    Args:
+        method: method to clean the results for
+    """
     for file in pathlib.Path(f"./results/{method}").iterdir():
         if file.is_dir():
             shutil.rmtree(file)
         else:
             file.unlink()
+
 
 def main():
     ROOT = os.getcwd() + "/DotModels"
@@ -218,16 +269,18 @@ def main():
 
     MAX_FILENAME = max(list(map(lambda x: len(x.name), FILES)))
     with Progress() as progress:
-        bar = progress.add_task("Learning Model ", total=len(FILES)*TIMES)
+        bar = progress.add_task("Learning Model ", total=len(FILES) * TIMES)
         # iterate over the models
         for index, (model, file) in enumerate(zip(MODELS, FILES)):
             # these variables can be shared among the processes
             prot = file.parent.stem
             # repeat the experiments to gather statistics
-            progress.update(bar, description=f"Learning Model {file.name.ljust(MAX_FILENAME)}")
+            progress.update(
+                bar, description=f"Learning Model {file.name.ljust(MAX_FILENAME)}"
+            )
             for trial in range(TIMES):
 
-                results = do_learning_experiments(model, (prot, file.stem))
+                results = do_learning_experiments(model, (prot, file.stem), trial)
 
                 for i, eq_queries, mb_queries, failure, hyps, cexs, qpr in results:
                     EQ_QUERIES[index, trial, i] = eq_queries
@@ -240,7 +293,9 @@ def main():
                         if not os.path.exists(MODEL_RES_DIR):
                             os.makedirs(MODEL_RES_DIR)
                         for j, (hyp, cex) in enumerate(zip(hyps, cexs)):
-                            save_automaton_to_file(hyp, f"{MODEL_RES_DIR}/h{j}.dot", "dot")
+                            save_automaton_to_file(
+                                hyp, f"{MODEL_RES_DIR}/h{j}.dot", "dot"
+                            )
                             with open(f"{MODEL_RES_DIR}/cex{j}.txt", "w") as f:
                                 f.write(str(cex))
                 progress.update(bar, advance=1)
@@ -351,27 +406,36 @@ if __name__ == "__main__":
     if BASE_METHOD == "state_coverage":
 
         class StochasticRandom(StochasticStateCoverageEqOracle):
-            def __init__(
-                self, alphabet, sul, walks_per_round, walk_len, prob_function="random"
-            ):
+            def __init__(self, alphabet, sul, walks_per_round, walk_len, seed=None):
                 super().__init__(
-                    alphabet, sul, walks_per_round, walk_len, prob_function
+                    alphabet,
+                    sul,
+                    walks_per_round,
+                    walk_len,
+                    prob_function="random",
+                    seed=seed,
                 )
 
         class StochasticLinear(StochasticStateCoverageEqOracle):
-            def __init__(
-                self, alphabet, sul, walks_per_round, walk_len, prob_function="linear"
-            ):
+            def __init__(self, alphabet, sul, walks_per_round, walk_len, seed=None):
                 super().__init__(
-                    alphabet, sul, walks_per_round, walk_len, prob_function
+                    alphabet,
+                    sul,
+                    walks_per_round,
+                    walk_len,
+                    prob_function="linear",
+                    seed=seed,
                 )
 
         class StochasticSquare(StochasticStateCoverageEqOracle):
-            def __init__(
-                self, alphabet, sul, walks_per_round, walk_len, prob_function="square"
-            ):
+            def __init__(self, alphabet, sul, walks_per_round, walk_len, seed=None):
                 super().__init__(
-                    alphabet, sul, walks_per_round, walk_len, prob_function
+                    alphabet,
+                    sul,
+                    walks_per_round,
+                    walk_len,
+                    prob_function="square",
+                    seed=seed,
                 )
 
         class StochasticExponential(StochasticStateCoverageEqOracle):
@@ -381,10 +445,15 @@ if __name__ == "__main__":
                 sul,
                 walks_per_round,
                 walk_len,
-                prob_function="exponential",
+                seed=None,
             ):
                 super().__init__(
-                    alphabet, sul, walks_per_round, walk_len, prob_function
+                    alphabet,
+                    sul,
+                    walks_per_round,
+                    walk_len,
+                    prob_function="exponential",
+                    seed=seed,
                 )
 
     elif BASE_METHOD == "wmethod":
@@ -415,28 +484,84 @@ if __name__ == "__main__":
 
     elif BASE_METHOD == "rwpmethod":
 
-        class RandomWp(RandomWpMethodEqOracle):
+        class RandomWp(StochasticWpMethodEqOracle):
             def __init__(
-                self, alphabet, sul, expected_length=10, min_length=1, bound=1000
+                self,
+                alphabet,
+                sul,
+                expected_length=10,
+                min_length=1,
+                bound=1000,
+                seed=None,
             ):
-                super().__init__(alphabet, sul, expected_length, min_length, bound)
+                super().__init__(
+                    alphabet,
+                    sul,
+                    expected_length,
+                    min_length,
+                    bound,
+                    prob_function="random",
+                    seed=seed,
+                )
 
         class LinearWp(StochasticWpMethodEqOracle):
             def __init__(
-                self, alphabet, sul, expected_length=10, min_length=1, bound=1000
+                self,
+                alphabet,
+                sul,
+                expected_length=10,
+                min_length=1,
+                bound=1000,
+                seed=None,
             ):
-                super().__init__(alphabet, sul, expected_length, min_length, bound, prob_function="linear")
+                super().__init__(
+                    alphabet,
+                    sul,
+                    expected_length,
+                    min_length,
+                    bound,
+                    prob_function="linear",
+                    seed=seed,
+                )
 
         class SquareWp(StochasticWpMethodEqOracle):
             def __init__(
-                self, alphabet, sul, expected_length=10, min_length=1, bound=1000
+                self,
+                alphabet,
+                sul,
+                expected_length=10,
+                min_length=1,
+                bound=1000,
+                seed=None,
             ):
-                super().__init__(alphabet, sul, expected_length, min_length, bound, prob_function="square")
+                super().__init__(
+                    alphabet,
+                    sul,
+                    expected_length,
+                    min_length,
+                    bound,
+                    prob_function="square",
+                    seed=seed,
+                )
 
         class ExponentialWp(StochasticWpMethodEqOracle):
             def __init__(
-                self, alphabet, sul, expected_length=10, min_length=1, bound=1000
+                self,
+                alphabet,
+                sul,
+                expected_length=10,
+                min_length=1,
+                bound=1000,
+                seed=None,
             ):
-                super().__init__(alphabet, sul, expected_length, min_length, bound, prob_function="exponential")
+                super().__init__(
+                    alphabet,
+                    sul,
+                    expected_length,
+                    min_length,
+                    bound,
+                    prob_function="exponential",
+                    seed=seed,
+                )
 
     main()

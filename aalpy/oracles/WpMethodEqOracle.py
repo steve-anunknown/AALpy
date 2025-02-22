@@ -198,12 +198,22 @@ class RandomWpMethodEqOracle(Oracle):
     """
 
     def __init__(
-        self, alphabet: list, sul: SUL, expected_length=10, min_length=1, bound=1000
+        self,
+        alphabet: list,
+        sul: SUL,
+        expected_length=10,
+        min_length=1,
+        bound=1000,
+        seed=None,
     ):
         super().__init__(alphabet, sul)
         self.expected_length = expected_length
         self.min_length = min_length
         self.bound = bound
+        if seed:
+            self.rng = self.rng.Random(seed)
+        else:
+            self.rng = self.rng.Random()
 
     def find_cex(self, hypothesis):
         if not hypothesis.characterization_set:
@@ -215,20 +225,20 @@ class RandomWpMethodEqOracle(Oracle):
         }
 
         for _ in range(self.bound):
-            state = random.choice(hypothesis.states)
+            state = self.rng.choice(hypothesis.states)
             input = state.prefix
             limit = self.min_length
-            while limit > 0 or random.random() > 1 / (self.expected_length + 1):
-                letter = random.choice(self.alphabet)
+            while limit > 0 or self.rng.random() > 1 / (self.expected_length + 1):
+                letter = self.rng.choice(self.alphabet)
                 input += (letter,)
                 limit -= 1
-            if random.random() > 0.5:
+            if self.rng.random() > 0.5:
                 # global suffix with characterization_set
-                input += random.choice(hypothesis.characterization_set)
+                input += self.rng.choice(hypothesis.characterization_set)
             else:
                 # local suffix
                 _ = hypothesis.execute_sequence(hypothesis.initial_state, input)
-                input += random.choice(state_mapping[hypothesis.current_state])
+                input += self.rng.choice(state_mapping[hypothesis.current_state])
 
             # execute the sequence
             cex = self.execute_test_case(hypothesis, input)
@@ -263,6 +273,7 @@ class StochasticWpMethodEqOracle(Oracle):
         min_length=1,
         bound=1000,
         prob_function="random",
+        seed=None,
     ):
         super().__init__(alphabet, sul)
         self.expected_length = expected_length
@@ -278,6 +289,10 @@ class StochasticWpMethodEqOracle(Oracle):
         self.prob_function = (
             getattr(self, prob_function) if prob_function != "random" else "random"
         )
+        if seed:
+            self.rng = random.Random(seed)
+        else:
+            self.rng = random.Random()
 
     def find_cex(self, hypothesis):
         if not hypothesis.characterization_set:
@@ -306,24 +321,24 @@ class StochasticWpMethodEqOracle(Oracle):
         }
         for _ in range(self.bound):
             if self.prob_function == "random":
-                state = random.choice(hypothesis.states)
+                state = self.rng.choice(hypothesis.states)
             else:
-                group = random.choices(self.age_groups, weights)[0]
-                id = random.choice(group)
+                group = self.rng.choices(self.age_groups, weights)[0]
+                id = self.rng.choice(group)
                 state = hypothesis.get_state_by_id(id)
             input = state.prefix
             limit = self.min_length
-            while limit > 0 or random.random() > 1 / (self.expected_length + 1):
-                letter = random.choice(self.alphabet)
+            while limit > 0 or self.rng.random() > 1 / (self.expected_length + 1):
+                letter = self.rng.choice(self.alphabet)
                 input += (letter,)
                 limit -= 1
-            if random.random() > 0.5:
+            if self.rng.random() > 0.5:
                 # global suffix with characterization_set
-                input += random.choice(hypothesis.characterization_set)
+                input += self.rng.choice(hypothesis.characterization_set)
             else:
                 # local suffix
                 _ = hypothesis.execute_sequence(hypothesis.initial_state, input)
-                input += random.choice(state_mapping[hypothesis.current_state])
+                input += self.rng.choice(state_mapping[hypothesis.current_state])
 
             # execute the sequence
             cex = self.execute_test_case(hypothesis, input)

@@ -26,7 +26,7 @@ fi
 
 for method in state_coverage rwpmethod wpmethod wmethod
 do
-    pypy mealy_conformance_testing.py -p -s -f all -b $method
+    env PYTHONHASHSHEED=42 pypy mealy_conformance_testing.py -p -s -f all -b $method
 done
 
 source ~/PythonEnvs/ModelLearning/bin/activate
