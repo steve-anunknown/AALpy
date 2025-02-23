@@ -29,11 +29,11 @@ from aalpy.utils.FileHandler import load_automaton_from_file
 from aalpy.utils import bisimilar
 
 PROTOCOLS = ["tls", "mqtt", "tcp", "dtls"]
-WALK_LEN = {"tcp": 50, "tls": 10, "mqtt": 15, "dtls": 40}
 ORACLES = ["state_coverage", "rwpmethod"]
 TRIALS = 30
 FORBIDDEN = {"tls": 2**10, "mqtt": 2**14, "tcp": 2**22, "dtls": 2**20}
 FORBIDDEN_POWERS = {"tls": 10, "mqtt": 14, "tcp": 22, "dtls": 20}
+WALK_LEN = {"TCP": 10, "TLS": 5, "MQTT": 8, "DTLS": 10}
 
 
 class ConditionalArgumentAction(argparse.Action):
@@ -65,7 +65,8 @@ def run_experiment(models, lower_bound, walk_len, method, variant):
 
     models -- The models to learn
     lower_bound -- The lower bound of queries
-    walk_len -- The length of the random walk
+    walk_len -- The length of the walk
+    method -- The method to use
     return -- True if the experiment was successful, False otherwise
     """
     for _ in range(TRIALS):
@@ -84,8 +85,8 @@ def run_experiment(models, lower_bound, walk_len, method, variant):
                 eq_oracle = StochasticWpMethodEqOracle(
                     alphabet,
                     sul,
-                    expected_length=10,
-                    min_length=3,
+                    expected_length=4,
+                    min_length=0,
                     bound=lower_bound,
                     prob_function=variant,
                 )
