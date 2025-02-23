@@ -1,1 +1,1 @@
-('LISTEN', 'SYN(V,V,0)', 'ACCEPT', 'FIN+ACK(V,V,0)', 'CLOSECONNECTION', 'ACK+RST(V,V,0)', 'SYN(V,V,0)', 'SEND', 'SEND', 'FIN+ACK(V,V,0)', 'SYN(V,V,0)', 'ACCEPT', 'CLOSECONNECTION', 'LISTEN', 'SEND', 'SYN+ACK(V,V,0)', 'RST(V,V,0)', 'RST(V,V,0)', 'RST(V,V,0)', 'LISTEN', 'LISTEN', 'SYN(V,V,0)')
+('RST(V,V,0)', 'ACCEPT', 'SYN(V,V,0)', 'ACK(V,V,0)', 'LISTEN', 'SYN(V,V,0)', 'ACK(V,V,0)', 'SYN(V,V,0)', 'FIN+ACK(V,V,0)', 'ACK+RST(V,V,0)', 'ACCEPT', 'SEND', 'SYN+ACK(V,V,0)', 'LISTEN', 'RCV', 'LISTEN', 'ACK(V,V,0)', 'RCV', 'ACK+PSH(V,V,1)', 'SYN(V,V,0)')

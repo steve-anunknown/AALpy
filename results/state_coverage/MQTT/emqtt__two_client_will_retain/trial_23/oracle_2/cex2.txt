@@ -1,1 +1,1 @@
-('ConnectC2 ', 'ConnectC1WithWillRetain ', 'ConnectC2 ', 'ConnectC1WithWillRetain ', 'ConnectC1WithWill ', 'ConnectC2 ', 'UnSubScribeC2 ', 'SubscribeC2 ')
+('ConnectC2 ', 'ConnectC1WithWillRetain ', 'ConnectC1WithWill ', 'ConnectC2 ', 'SubscribeC2 ', 'ConnectC1WithWillRetain ', 'ConnectC1WithWill ', 'UnSubScribeC2 ', 'DeleteRetainedC2 ', 'ConnectC1WithWill ', 'ConnectC2 ', 'SubscribeC2 ')
