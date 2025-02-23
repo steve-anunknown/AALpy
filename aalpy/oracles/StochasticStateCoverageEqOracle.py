@@ -112,7 +112,7 @@ class StochasticStateCoverageEqOracle(Oracle):
                 self.num_steps += 1
 
             suffix = []
-            for _ in range(self.steps_per_walk):
+            while self.rng.random() > 1 / (self.steps_per_walk + 1):
                 suffix.append(self.rng.choice(self.alphabet))
 
                 out_sul = self.sul.step(suffix[-1])

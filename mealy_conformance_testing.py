@@ -37,7 +37,7 @@ from aalpy.utils import bisimilar
 # tcp_server_bsd_trans is 2097152 -> 2200000 for good measure
 # tcp_server_windows_trans is 49152 -> 60000 for good measure
 TCP_MODELS = {
-    "TCP_Linux_Client": 12000,
+    "TCP_Linux_Client": 20000,
     "TCP_Linux_Server": 550000,
     "tcp_server_ubuntu_trans": 410000,
     "tcp_server_bsd_trans": 2200000,
@@ -74,10 +74,16 @@ def DTLS_MODELS(size):
 
 WALKS_PER_ROUND = {
     "TLS": 1,
-    "MQTT": 3100,
-    "DTLS": 550000,
+    "MQTT": 5000,
+    "DTLS": 600000,
 }
-# WALK_LEN = {"TCP": 50, "TLS": 10, "MQTT": 20, "DTLS": 50}
+
+# for exploration = 4
+# TLS longest suffix = 1 => therefore random walk length = 5
+# TCP longest suffix = 6 => therefore random walk length = 10
+# MQTT longest suffix = 4 => therefore random walk length = 8
+# DTLS longest suffix = 6 => therefore random walk length = 10
+WALK_LEN = {"TCP": 10, "TLS": 5, "MQTT": 8, "DTLS": 10}
 
 METHOD_TO_ORACLES = {
     "wmethod": 2,
@@ -141,18 +147,19 @@ def do_learning_experiments(model, prot, trial):
         else:
             wpr = WALKS_PER_ROUND[prot[0]]
         if BASE_METHOD == "state_coverage":
+            wl = WALK_LEN[prot[0]]
             eq_oracles = [
                 StochasticRandom(
-                    alphabet, suls[0], wpr, 30, seed=hash((BASE_METHOD, 0, prot, trial))
+                    alphabet, suls[0], wpr, wl, seed=hash((BASE_METHOD, 0, prot, trial))
                 ),
                 StochasticLinear(
-                    alphabet, suls[1], wpr, 30, seed=hash((BASE_METHOD, 1, prot, trial))
+                    alphabet, suls[1], wpr, wl, seed=hash((BASE_METHOD, 1, prot, trial))
                 ),
                 StochasticSquare(
-                    alphabet, suls[2], wpr, 30, seed=hash((BASE_METHOD, 2, prot, trial))
+                    alphabet, suls[2], wpr, wl, seed=hash((BASE_METHOD, 2, prot, trial))
                 ),
                 StochasticExponential(
-                    alphabet, suls[3], wpr, 30, seed=hash((BASE_METHOD, 3, prot, trial))
+                    alphabet, suls[3], wpr, wl, seed=hash((BASE_METHOD, 3, prot, trial))
                 ),
                 # StochasticInverse(alphabet, suls[4], wpr, wl),
             ]
@@ -161,32 +168,24 @@ def do_learning_experiments(model, prot, trial):
                 RandomWp(
                     alphabet,
                     suls[0],
-                    30,
-                    10,
                     wpr,
                     seed=hash((BASE_METHOD, 0, prot, trial)),
                 ),
                 LinearWp(
                     alphabet,
                     suls[1],
-                    30,
-                    10,
                     wpr,
                     seed=hash((BASE_METHOD, 1, prot, trial)),
                 ),
                 SquareWp(
                     alphabet,
                     suls[2],
-                    30,
-                    10,
                     wpr,
                     seed=hash((BASE_METHOD, 2, prot, trial)),
                 ),
                 ExponentialWp(
                     alphabet,
                     suls[3],
-                    30,
-                    10,
                     wpr,
                     seed=hash((BASE_METHOD, 3, prot, trial)),
                 ),
@@ -489,17 +488,15 @@ if __name__ == "__main__":
                 self,
                 alphabet,
                 sul,
-                expected_length=10,
-                min_length=1,
                 bound=1000,
                 seed=None,
             ):
                 super().__init__(
                     alphabet,
                     sul,
-                    expected_length,
-                    min_length,
-                    bound,
+                    expected_length=4,
+                    min_length=0,
+                    bound=bound,
                     prob_function="random",
                     seed=seed,
                 )
@@ -509,17 +506,15 @@ if __name__ == "__main__":
                 self,
                 alphabet,
                 sul,
-                expected_length=10,
-                min_length=1,
                 bound=1000,
                 seed=None,
             ):
                 super().__init__(
                     alphabet,
                     sul,
-                    expected_length,
-                    min_length,
-                    bound,
+                    expected_length=4,
+                    min_length=0,
+                    bound=bound,
                     prob_function="linear",
                     seed=seed,
                 )
@@ -529,17 +524,15 @@ if __name__ == "__main__":
                 self,
                 alphabet,
                 sul,
-                expected_length=10,
-                min_length=1,
                 bound=1000,
                 seed=None,
             ):
                 super().__init__(
                     alphabet,
                     sul,
-                    expected_length,
-                    min_length,
-                    bound,
+                    expected_length=4,
+                    min_length=0,
+                    bound=bound,
                     prob_function="square",
                     seed=seed,
                 )
@@ -549,17 +542,15 @@ if __name__ == "__main__":
                 self,
                 alphabet,
                 sul,
-                expected_length=10,
-                min_length=1,
                 bound=1000,
                 seed=None,
             ):
                 super().__init__(
                     alphabet,
                     sul,
-                    expected_length,
-                    min_length,
-                    bound,
+                    expected_length=4,
+                    min_length=0,
+                    bound=bound,
                     prob_function="exponential",
                     seed=seed,
                 )
