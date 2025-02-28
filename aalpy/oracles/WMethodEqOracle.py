@@ -5,6 +5,7 @@ from random import shuffle, choice, randint
 from aalpy.base.Oracle import Oracle
 from aalpy.base.SUL import SUL
 from itertools import product
+from collections import deque
 
 
 class WMethodEqOracle(Oracle):
@@ -158,6 +159,91 @@ class WMethodDiffFirstEqOracle(Oracle):
         return None
 
 
+class WMethodTSDiffEqOracle(Oracle):
+
+    def __init__(
+        self, alphabet: list, sul: SUL, max_number_of_states=4, shuffle_test_set=True
+    ):
+        """
+        Args:
+
+            alphabet: input alphabet
+            sul: system under learning
+            max_number_of_states: maximum number of states in the automaton
+            shuffle_test_set: if True, test cases will be shuffled
+        """
+
+        super().__init__(alphabet, sul)
+        self.m = max_number_of_states
+        self.shuffle = shuffle_test_set
+        self.cache = set()
+        self.age_groups = deque()
+
+    def test_suite(self, cover, depth, char_set):
+        """
+        Construct the test suite for the W Method using
+        the provided state cover and characterization set,
+        exploring up to a given depth.
+        Args:
+
+            cover: list of states to cover
+            depth: maximum length of middle part
+            char_set: characterization set
+        """
+        # fix the length of the middle part per loop
+        # to avoid generating large sequences early on
+        char_set = char_set or [()]
+        for d in range(depth):
+            middle = product(self.alphabet, repeat=d)
+            for m in middle:
+                for s in cover:
+                    for c in char_set:
+                        yield s + m + c
+
+    def find_cex(self, hypothesis):
+        if not self.age_groups:
+            self.age_groups.extend([[s.state_id for s in hypothesis.states]])
+        else:
+            new = []
+            for s in hypothesis.states:
+                if not any(s.state_id in p for p in self.age_groups):
+                    new.append(s.state_id)
+            self.age_groups.extend([new])
+
+        if not hypothesis.characterization_set:
+            hypothesis.characterization_set = hypothesis.compute_characterization_set()
+
+        # covers every transition of the specification at least once.
+        # with emphasis on newer states, notice the reversed order of states
+        new_states = [hypothesis.get_state_by_id(s) for s in self.age_groups[-1]]
+        transition_cover = [
+            state.prefix + (letter,)
+            for state in new_states + [s for s in hypothesis.states if not s in new_states]
+            for letter in self.alphabet
+        ]
+        depth = self.m + 1 - len(hypothesis.states)
+        for seq in self.test_suite(
+            transition_cover, depth, hypothesis.characterization_set
+        ):
+            if seq not in self.cache:
+                self.reset_hyp_and_sul(hypothesis)
+                outputs = []
+
+                for ind, letter in enumerate(seq):
+                    out_hyp = hypothesis.step(letter)
+                    out_sul = self.sul.step(letter)
+                    self.num_steps += 1
+
+                    outputs.append(out_sul)
+                    if out_hyp != out_sul:
+                        self.sul.post()
+                        return seq[: ind + 1]
+                self.cache.add(seq)
+
+        return None
+
+
+
 class RandomWMethodEqOracle(Oracle):
     """
     Randomized version of the W-Method equivalence oracle.
@@ -229,3 +315,4 @@ class RandomWMethodEqOracle(Oracle):
                     return test_case[: ind + 1]
 
         return None
+

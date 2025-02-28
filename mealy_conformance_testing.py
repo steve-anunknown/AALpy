@@ -13,7 +13,7 @@ import argparse
 from aalpy.oracles.WMethodEqOracle import (
     WMethodEqOracle,
     WMethodDiffFirstEqOracle,
-    RandomWMethodEqOracle,
+    WMethodTSDiffEqOracle,
 )
 from aalpy.oracles.WpMethodEqOracle import (
     WpMethodEqOracle,
@@ -86,7 +86,7 @@ WALKS_PER_ROUND = {
 WALK_LEN = {"TCP": 10, "TLS": 5, "MQTT": 8, "DTLS": 10}
 
 METHOD_TO_ORACLES = {
-    "wmethod": 2,
+    "wmethod": 3,
     "wpmethod": 3,
     "rwpmethod": 4,
     "state_coverage": 4,
@@ -195,6 +195,7 @@ def do_learning_experiments(model, prot, trial):
         eq_oracles = [
             WMethod(alphabet, suls[0], max_size),
             WMethodDiffFirst(alphabet, suls[1], max_size),
+            WMethodTSDiff(alphabet, suls[2], max_size),
         ]
     elif BASE_METHOD == "wpmethod":
         max_size = model.size + 2
@@ -463,6 +464,10 @@ if __name__ == "__main__":
                 super().__init__(alphabet, sul, max_model_size)
 
         class WMethodDiffFirst(WMethodDiffFirstEqOracle):
+            def __init__(self, alphabet, sul, max_model_size):
+                super().__init__(alphabet, sul, max_model_size)
+
+        class WMethodTSDiff(WMethodTSDiffEqOracle):
             def __init__(self, alphabet, sul, max_model_size):
                 super().__init__(alphabet, sul, max_model_size)
 
