@@ -75,7 +75,6 @@ def DTLS_MODELS(size):
 WALKS_PER_ROUND = {
     "TLS": 1,
     "MQTT": 5000,
-    "DTLS": 600000,
 }
 
 # for exploration = 4
