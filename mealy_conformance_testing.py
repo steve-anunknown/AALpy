@@ -86,7 +86,7 @@ WALKS_PER_ROUND = {
 WALK_LEN = {"TCP": 10, "TLS": 5, "MQTT": 8, "DTLS": 10}
 
 METHOD_TO_ORACLES = {
-    "wmethod": 3,
+    "wmethod": 6,
     "wpmethod": 3,
     "rwpmethod": 4,
     "state_coverage": 4,
@@ -194,8 +194,11 @@ def do_learning_experiments(model, prot, trial):
         max_size = model.size + 2
         eq_oracles = [
             WMethod(alphabet, suls[0], max_size),
-            WMethodDiffFirst(alphabet, suls[1], max_size),
-            WMethodTSDiff(alphabet, suls[2], max_size),
+            WMethodTSDiff1(alphabet, suls[1], max_size),
+            WMethodTSDiff2(alphabet, suls[2], max_size),
+            WMethodTSDiff3(alphabet, suls[3], max_size),
+            WMethodTSDiff6(alphabet, suls[4], max_size),
+            WMethodDiffFirst(alphabet, suls[5], max_size),
         ]
     elif BASE_METHOD == "wpmethod":
         max_size = model.size + 2
@@ -467,9 +470,21 @@ if __name__ == "__main__":
             def __init__(self, alphabet, sul, max_model_size):
                 super().__init__(alphabet, sul, max_model_size)
 
-        class WMethodTSDiff(WMethodTSDiffEqOracle):
-            def __init__(self, alphabet, sul, max_model_size):
-                super().__init__(alphabet, sul, max_model_size)
+        class WMethodTSDiff1(WMethodTSDiffEqOracle):
+            def __init__(self, alphabet, sul, max_model_size, diff_depth=1):
+                super().__init__(alphabet, sul, max_model_size, diff_depth)
+
+        class WMethodTSDiff2(WMethodTSDiffEqOracle):
+            def __init__(self, alphabet, sul, max_model_size, diff_depth=2):
+                super().__init__(alphabet, sul, max_model_size, diff_depth)
+
+        class WMethodTSDiff3(WMethodTSDiffEqOracle):
+            def __init__(self, alphabet, sul, max_model_size, diff_depth=3):
+                super().__init__(alphabet, sul, max_model_size, diff_depth)
+
+        class WMethodTSDiff6(WMethodTSDiffEqOracle):
+            def __init__(self, alphabet, sul, max_model_size, diff_depth=6):
+                super().__init__(alphabet, sul, max_model_size, diff_depth)
 
     elif BASE_METHOD == "wpmethod":
         TIMES = 1

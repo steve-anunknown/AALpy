@@ -78,17 +78,17 @@ def make_plots(base_method, results_dir, protocols):
     if base_method == "state_coverage":
         oracles = ["Random", "Linear", "Quadratic", "Exponential"]
     elif base_method == "wmethod":
-        oracles = ["Normal", "Reverse", "TSDiff"]
+        oracles = ["Normal", "TSDiff1", "TSDiff2", "TSDiff3", "TSDiff6", "Reverse"]
     elif base_method == "wpmethod":
         oracles = ["Normal", "Reverse", "TSDiff"]
     elif base_method == "rwpmethod":
         oracles = ["Normal", "Linear", "Quadratic", "Exponential"]
     else:
         oracles = [
-            ["Random", "Linear", "Quadratic", "Exponential"], # state_coverage
-            ["Normal", "Reverse", "TSDiff"],                  # wmethod
-            ["Normal", "Reverse", "TSDiff"],                  # wpmethod
-            ["Random", "Linear", "Quadratic", "Exponential"], # rwpmethod
+            ["Random", "Linear", "Quadratic", "Exponential"],       # state_coverage
+            ["Normal", "TSDiff1", "TSDiff2", "TSDiff3", "TSDiff6", "Reverse"], # wmethod
+            ["Normal", "Reverse", "TSDiff"],                        # wpmethod
+            ["Random", "Linear", "Quadratic", "Exponential"],       # rwpmethod
         ]
     protocols = PROTOCOLS if protocols == "all" else [protocols]
     oracles = oracles if base_method == "all" else [oracles]
