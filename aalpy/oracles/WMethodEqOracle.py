@@ -5,7 +5,10 @@ from random import shuffle, choice, randint
 from aalpy.base.Oracle import Oracle
 from aalpy.base.SUL import SUL
 from itertools import product
-from collections import deque
+
+
+def flatten(inlist):
+    return [item for sublist in inlist for item in sublist]
 
 
 class WMethodEqOracle(Oracle):
@@ -69,18 +72,9 @@ class WMethodEqOracle(Oracle):
             transition_cover, depth, hypothesis.characterization_set
         ):
             if seq not in self.cache:
-                self.reset_hyp_and_sul(hypothesis)
-                outputs = []
-
-                for ind, letter in enumerate(seq):
-                    out_hyp = hypothesis.step(letter)
-                    out_sul = self.sul.step(letter)
-                    self.num_steps += 1
-
-                    outputs.append(out_sul)
-                    if out_hyp != out_sul:
-                        self.sul.post()
-                        return seq[: ind + 1]
+                cex = self.execute_test_case(hypothesis, seq)
+                if cex:
+                    return cex
                 self.cache.add(seq)
 
         return None
@@ -88,21 +82,17 @@ class WMethodEqOracle(Oracle):
 
 class WMethodDiffFirstEqOracle(Oracle):
 
-    def __init__(
-        self, alphabet: list, sul: SUL, max_number_of_states=4, shuffle_test_set=True
-    ):
+    def __init__(self, alphabet: list, sul: SUL, max_number_of_states=4):
         """
         Args:
 
             alphabet: input alphabet
             sul: system under learning
             max_number_of_states: maximum number of states in the automaton
-            shuffle_test_set: if True, test cases will be shuffled
         """
 
         super().__init__(alphabet, sul)
         self.m = max_number_of_states
-        self.shuffle = shuffle_test_set
         self.cache = set()
 
     def test_suite(self, cover, depth, char_set):
@@ -142,18 +132,9 @@ class WMethodDiffFirstEqOracle(Oracle):
             transition_cover, depth, hypothesis.characterization_set
         ):
             if seq not in self.cache:
-                self.reset_hyp_and_sul(hypothesis)
-                outputs = []
-
-                for ind, letter in enumerate(seq):
-                    out_hyp = hypothesis.step(letter)
-                    out_sul = self.sul.step(letter)
-                    self.num_steps += 1
-
-                    outputs.append(out_sul)
-                    if out_hyp != out_sul:
-                        self.sul.post()
-                        return seq[: ind + 1]
+                cex = self.execute_test_case(hypothesis, seq)
+                if cex:
+                    return cex
                 self.cache.add(seq)
 
         return None
@@ -161,23 +142,21 @@ class WMethodDiffFirstEqOracle(Oracle):
 
 class WMethodTSDiffEqOracle(Oracle):
 
-    def __init__(
-        self, alphabet: list, sul: SUL, max_number_of_states=4, shuffle_test_set=True
-    ):
+    def __init__(self, alphabet: list, sul: SUL, max_number_of_states=4, diff_depth=1):
         """
         Args:
 
             alphabet: input alphabet
             sul: system under learning
             max_number_of_states: maximum number of states in the automaton
-            shuffle_test_set: if True, test cases will be shuffled
+            diff_depth: how many new age groups will be tested first
         """
 
         super().__init__(alphabet, sul)
         self.m = max_number_of_states
-        self.shuffle = shuffle_test_set
+        self.d = diff_depth
         self.cache = set()
-        self.age_groups = deque()
+        self.age_groups = []
 
     def test_suite(self, cover, depth, char_set):
         """
@@ -213,12 +192,14 @@ class WMethodTSDiffEqOracle(Oracle):
         if not hypothesis.characterization_set:
             hypothesis.characterization_set = hypothesis.compute_characterization_set()
 
-        # covers every transition of the specification at least once.
-        # with emphasis on newer states, notice the reversed order of states
-        new_states = [hypothesis.get_state_by_id(s) for s in self.age_groups[-1]]
+        new_states = [
+            hypothesis.get_state_by_id(s)
+            for s in flatten(self.age_groups[-1::-1][: self.d])
+        ]
         transition_cover = [
             state.prefix + (letter,)
-            for state in new_states + [s for s in hypothesis.states if not s in new_states]
+            for state in new_states
+            + [s for s in hypothesis.states if not s in new_states]
             for letter in self.alphabet
         ]
         depth = self.m + 1 - len(hypothesis.states)
@@ -226,22 +207,12 @@ class WMethodTSDiffEqOracle(Oracle):
             transition_cover, depth, hypothesis.characterization_set
         ):
             if seq not in self.cache:
-                self.reset_hyp_and_sul(hypothesis)
-                outputs = []
-
-                for ind, letter in enumerate(seq):
-                    out_hyp = hypothesis.step(letter)
-                    out_sul = self.sul.step(letter)
-                    self.num_steps += 1
-
-                    outputs.append(out_sul)
-                    if out_hyp != out_sul:
-                        self.sul.post()
-                        return seq[: ind + 1]
+                cex = self.execute_test_case(hypothesis, seq)
+                if cex:
+                    return cex
                 self.cache.add(seq)
 
         return None
-
 
 
 class RandomWMethodEqOracle(Oracle):
@@ -296,23 +267,14 @@ class RandomWMethodEqOracle(Oracle):
         for state in states_to_cover:
             self.freq_dict[state.prefix] = self.freq_dict[state.prefix] + 1
 
-            self.reset_hyp_and_sul(hypothesis)
-
             prefix = state.prefix
             random_walk = tuple(
                 choice(self.alphabet) for _ in range(randint(1, self.random_walk_len))
             )
 
             test_case = prefix + random_walk + choice(hypothesis.characterization_set)
-
-            for ind, i in enumerate(test_case):
-                output_hyp = hypothesis.step(i)
-                output_sul = self.sul.step(i)
-                self.num_steps += 1
-
-                if output_sul != output_hyp:
-                    self.sul.post()
-                    return test_case[: ind + 1]
+            cex = self.execute_test_case(hypothesis, test_case)
+            if cex:
+                return cex
 
         return None
-
