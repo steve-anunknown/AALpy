@@ -6,6 +6,10 @@ from aalpy.base.Oracle import Oracle
 from aalpy.base.SUL import SUL
 
 
+def flatten(inlist):
+    return [item for sublist in inlist for item in sublist]
+
+
 def state_characterization_set(hypothesis, alphabet, state):
     """
     Return a list of sequences that distinguish the given state from all other states in the hypothesis.
@@ -101,18 +105,10 @@ class WpMethodEqOracle(Oracle):
         test_suite = chain(first_phase, second_phase)
 
         for seq in test_suite:
-            if seq not in self.cache:
-                self.reset_hyp_and_sul(hypothesis)
-                outputs = []
-                for ind, letter in enumerate(seq):
-                    out_hyp = hypothesis.step(letter)
-                    out_sul = self.sul.step(letter)
-                    self.num_steps += 1
-
-                    outputs.append(out_sul)
-                    if out_hyp != out_sul:
-                        self.sul.post()
-                        return seq[: ind + 1]
+            if not seq in self.cache:
+                cex = self.execute_test_case(hypothesis, seq)
+                if cex:
+                    return cex
                 self.cache.add(seq)
 
         return None
@@ -125,70 +121,56 @@ class WpMethodTSDiffEqOracle(Oracle):
     difference between the two test suites, TS_new - TS_old.
     """
 
-    def __init__(self, alphabet: list, sul: SUL, max_number_of_states):
+    def __init__(self, alphabet: list, sul: SUL, max_number_of_states, diff_depth=1):
         super().__init__(alphabet, sul)
         self.m = max_number_of_states
+        self.d = diff_depth
+        self.age_groups = []
         self.cache = set()
-        self.prev_hypothesis = None
 
     def find_cex(self, hypothesis):
         if not hypothesis.characterization_set:
-            hypothesis.characterization_set = frozenset(
+            hypothesis.characterization_set = list(
                 hypothesis.compute_characterization_set()
             )
 
+        if not self.age_groups:
+            self.age_groups.extend([[s.state_id for s in hypothesis.states]])
+        else:
+            new = []
+            for s in hypothesis.states:
+                if not any(s.state_id in p for p in self.age_groups):
+                    new.append(s.state_id)
+            self.age_groups.extend([new])
+
         depth = self.m + 1 - len(hypothesis.states)
 
-        if self.prev_hypothesis:
-            # if there is a previous hypothesis, execute the first phase test
-            # suite by using the difference of the two state coverage sets as
-            # the prefix, instead of the whole new one.
-            state_cover = [state.prefix for state in hypothesis.states]
+        new_states = [
+            hypothesis.get_state_by_id(s)
+            for s in flatten(self.age_groups[-1::-1][: self.d])
+        ]
 
-            new = {s.state_id: s for s in hypothesis.states}
-            old = {s.state_id: s for s in self.prev_hypothesis.states}
-            new_states = [new[s] for s in new if not s in old]
-            diff_sc = [s.prefix for s in new_states]
+        state_cover = [
+            state.prefix
+            for state in new_states
+            + [s for s in hypothesis.states if s not in new_states]
+        ]
+        transition_cover = [
+            prefix + (letter,) for prefix in state_cover for letter in self.alphabet
+        ]
+        difference = set(transition_cover).difference(state_cover)
 
-            # remove the new states and prepend them
-            state_cover = [s for s in state_cover if s not in diff_sc]
-            state_cover = diff_sc + state_cover
-            transition_cover = frozenset(
-                prefix + (letter,) for prefix in state_cover for letter in self.alphabet
-            )
-            difference = transition_cover.difference(state_cover)
-        else:
-            state_cover = frozenset(state.prefix for state in hypothesis.states)
-            transition_cover = frozenset(
-                state.prefix + (letter,)
-                for state in hypothesis.states
-                for letter in self.alphabet
-            )
-            difference = transition_cover.difference(state_cover)
-
-        self.prev_hypothesis = hypothesis
-        # first phase State Cover * Middle * Characterization Set
         first_phase = first_phase_it(
             self.alphabet, state_cover, depth, hypothesis.characterization_set
         )
 
-        # second phase (Transition Cover - State Cover) * Middle * Characterization Set
-        # of the state that the prefix leads to
         second_phase = second_phase_it(hypothesis, self.alphabet, difference, depth)
         test_suite = chain(first_phase, second_phase)
         for seq in test_suite:
             if seq not in self.cache:
-                self.reset_hyp_and_sul(hypothesis)
-                outputs = []
-                for ind, letter in enumerate(seq):
-                    out_hyp = hypothesis.step(letter)
-                    out_sul = self.sul.step(letter)
-                    self.num_steps += 1
-
-                    outputs.append(out_sul)
-                    if out_hyp != out_sul:
-                        self.sul.post()
-                        return seq[: ind + 1]
+                cex = self.execute_test_case(hypothesis, seq)
+                if cex:
+                    return cex
                 self.cache.add(seq)
 
 

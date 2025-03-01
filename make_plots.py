@@ -80,19 +80,20 @@ def make_plots(base_method, results_dir, protocols):
     elif base_method == "wmethod":
         oracles = ["Normal", "TSDiff1", "TSDiff2", "TSDiff3", "TSDiff6", "Reverse"]
     elif base_method == "wpmethod":
-        oracles = ["Normal", "Reverse", "TSDiff"]
+        oracles = ["Normal", "TSDiff1", "TSDiff2", "TSDiff3", "TSDiff6", "Reverse"]
     elif base_method == "rwpmethod":
         oracles = ["Normal", "Linear", "Quadratic", "Exponential"]
     else:
         oracles = [
             ["Random", "Linear", "Quadratic", "Exponential"],       # state_coverage
             ["Normal", "TSDiff1", "TSDiff2", "TSDiff3", "TSDiff6", "Reverse"], # wmethod
-            ["Normal", "Reverse", "TSDiff"],                        # wpmethod
+            ["Normal", "TSDiff1", "TSDiff2", "TSDiff3", "TSDiff6", "Reverse"], # wpmethod
             ["Random", "Linear", "Quadratic", "Exponential"],       # rwpmethod
         ]
     protocols = PROTOCOLS if protocols == "all" else [protocols]
     oracles = oracles if base_method == "all" else [oracles]
     methods = ["state_coverage", "wmethod", "wpmethod", "rwpmethod"] if base_method == "all" else [base_method]
+
     for method, orcs in zip(methods, oracles):
         if protocols == ["combined"]:
             measurements = np.load(f"{results_dir}/{method}/eq_queries.npy")
