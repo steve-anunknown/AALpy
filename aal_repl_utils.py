@@ -68,8 +68,32 @@ def setup(method, prot):
 def quickplot_s1(method, prot):
     _, _, correct = setup(method, prot)
     average = np.nanmean(correct, axis=1)
+    for i in range(average.shape[0]):
+        for j in range(average.shape[1]):
+            if np.isnan(average[i, j]):
+                average[i, j] = np.nanmax(average[i, :])
     s1 = np.sum(average, axis=0)
     plot(s1, title=f"s1 scores for {method} {prot}")
+
+def quickplot_s1_no_last_rounds(method, prot):
+    _, failures, correct = setup(method, prot)
+    qpr = np.load(f'results/{method}/{prot}/queries_per_round.npy', allow_pickle=True)
+    last_rounds = np.vectorize(lambda x: x[-1])(qpr)
+    correct_last_rounds = np.where(failures == 0, last_rounds, np.nan)
+    average = np.nanmean(correct, axis=1)
+    for i in range(average.shape[0]):
+        for j in range(average.shape[1]):
+            if np.isnan(average[i, j]):
+                average[i, j] = np.nanmax(average[i, :])
+    s1 = np.sum(average, axis=0)
+    correction = np.nanmean(correct_last_rounds, axis=1)
+    for i in range(correction.shape[0]):
+        for j in range(correction.shape[1]):
+            if np.isnan(correction[i, j]):
+                correction[i, j] = np.nanmax(correction[i, :])
+    correction = np.sum(correction, axis=0)
+    s1_prime = s1 - correction
+    plot(s1_prime, title=f"s1 scores for {method} {prot} without last rounds")
 
 
 def quickplot_s2(method, prot):

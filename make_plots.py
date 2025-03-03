@@ -19,6 +19,38 @@ def keep_successes(queries, failures):
         filtered.append(queries[m, valid, :])
     return filtered
 
+def compute_scores_nlr(queries, failures, qpr):
+    successful = np.copy(queries)
+    # replace failed experiments by nan
+    successful[failures == 1] = np.nan
+    mask = np.all(np.isnan(successful), axis=1)
+    keep = ~np.any(mask, axis=1)
+    successful = successful[keep]
+    # compute scores ignoring fails
+    averages = np.nanmean(successful, axis=1)
+    for i in range(averages.shape[0]):
+        for j in range(averages.shape[1]):
+            if np.isnan(averages[i, j]):
+                averages[i, j] = np.nanmax(averages[i, :])
+    s1_scores = np.sum(averages, axis=0)
+
+    last_rounds = np.vectorize(lambda x: x[-1])(qpr)
+    correct_last_rounds = np.where(failures == 0, last_rounds, np.nan)
+    correction = np.nanmean(correct_last_rounds, axis=1)
+    for i in range(correction.shape[0]):
+        for j in range(correction.shape[1]):
+            if np.isnan(correction[i, j]):
+                correction[i, j] = np.nanmax(correction[i, :])
+    correction = np.sum(correction, axis=0)
+    s1_prime = s1_scores - correction
+
+    maxima = np.nanmax(averages, axis=1)
+    s2_scores = np.sum(averages / maxima[:, np.newaxis], axis=0)
+    # compute penalized s2 score by factoring in fails
+    fails = np.sum(np.mean(failures,axis=1), axis=0)
+    s2_scores_penalized = s2_scores + fails
+    return (s1_scores, s1_prime, s2_scores, s2_scores_penalized)
+
 def compute_scores(queries, failures):
     successful = np.copy(queries)
     # replace failed experiments by nan
@@ -28,6 +60,10 @@ def compute_scores(queries, failures):
     successful = successful[keep]
     # compute scores ignoring fails
     averages = np.nanmean(successful, axis=1)
+    for i in range(averages.shape[0]):
+        for j in range(averages.shape[1]):
+            if np.isnan(averages[i, j]):
+                averages[i, j] = np.nanmax(averages[i, :])
     s1_scores = np.sum(averages, axis=0)
 
     maxima = np.nanmax(averages, axis=1)
@@ -110,9 +146,10 @@ def make_plots(base_method, results_dir, protocols):
             # shape of measurements is (num_models, num_runs, num_oracles)
             measurements = np.load(f"{curdir}/eq_queries.npy")
             failures = np.load(f"{curdir}/failures.npy")
-            (s1_scores, s2_scores, s2_scores_penalized) = compute_scores(measurements, failures)
-            scores = np.array([s1_scores, s2_scores, s2_scores_penalized]).T
-            df = pd.DataFrame(scores, columns=["S1", "S2", "S2_Penalized"], index=orcs)
+            qpr = np.load(f"{curdir}/queries_per_round.npy", allow_pickle=True)
+            (s1_scores, s1_prime, s2_scores, s2_scores_penalized) = compute_scores_nlr(measurements, failures, qpr)
+            scores = np.array([s1_scores, s1_prime, s2_scores, s2_scores_penalized]).T
+            df = pd.DataFrame(scores, columns=["S1", "S1_No_Last_Rounds", "S2", "S2_Penalized"], index=orcs)
             draw_plots(df, curdir)
             if protocol == "DTLS":
                 # more size-specific results
@@ -128,9 +165,10 @@ def make_plots(base_method, results_dir, protocols):
                     indices = np.array(list(map(lambda x: x[0], group)))
                     ms = measurements[indices]
                     fs = failures[indices]
-                    (s1_scores, s2_scores, s2_scores_penalized) = compute_scores(ms, fs)
-                    scores = np.array([s1_scores, s2_scores, s2_scores_penalized]).T
-                    df = pd.DataFrame(scores, columns=["S1", "S2", "S2_Penalized"], index=orcs)
+                    qprs = qpr[indices]
+                    (s1_scores, s1_prime, s2_scores, s2_scores_penalized) = compute_scores_nlr(ms, fs, qprs)
+                    scores = np.array([s1_scores, s1_prime, s2_scores, s2_scores_penalized]).T
+                    df = pd.DataFrame(scores, columns=["S1", "S1_No_Last_Rounds", "S2", "S2_Penalized"], index=orcs)
                     if not os.path.exists(f'{curdir}/sizes_{id[0]}_{id[1]}'):
                         os.makedirs(f'{curdir}/sizes_{id[0]}_{id[1]}')
                     draw_plots(df, f'{curdir}/sizes_{id[0]}_{id[1]}')
