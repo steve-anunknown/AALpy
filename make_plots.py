@@ -20,12 +20,7 @@ def keep_successes(queries, failures):
     return filtered
 
 def compute_scores_nlr(queries, failures, qpr):
-    successful = np.copy(queries)
-    # replace failed experiments by nan
-    successful[failures == 1] = np.nan
-    mask = np.all(np.isnan(successful), axis=1)
-    keep = ~np.any(mask, axis=1)
-    successful = successful[keep]
+    successful = np.where(failures == 0, queries, np.nan)
     # compute scores ignoring fails
     averages = np.nanmean(successful, axis=1)
     for i in range(averages.shape[0]):
@@ -52,12 +47,7 @@ def compute_scores_nlr(queries, failures, qpr):
     return (s1_scores, s1_prime, s2_scores, s2_scores_penalized)
 
 def compute_scores(queries, failures):
-    successful = np.copy(queries)
-    # replace failed experiments by nan
-    successful[failures == 1] = np.nan
-    mask = np.all(np.isnan(successful), axis=1)
-    keep = ~np.any(mask, axis=1)
-    successful = successful[keep]
+    successful = np.where(failures == 0, queries, np.nan)
     # compute scores ignoring fails
     averages = np.nanmean(successful, axis=1)
     for i in range(averages.shape[0]):
@@ -163,6 +153,7 @@ def make_plots(base_method, results_dir, protocols):
                 for k, group in groups:
                     id = (k * 20, (k+1) * 20)
                     indices = np.array(list(map(lambda x: x[0], group)))
+                    print(id, indices)
                     ms = measurements[indices]
                     fs = failures[indices]
                     qprs = qpr[indices]
