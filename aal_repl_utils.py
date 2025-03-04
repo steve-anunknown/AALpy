@@ -13,8 +13,8 @@ BASE_METHODS = [
 
 VARIATIONS = {
     "state_coverage": ["Random", "Linear", "Square", "Exponential"],
-    "wmethod": ["Normal", "Reversed"],
-    "wpmethod": ["Normal", "Reversed", "TSDiff"],
+    "wmethod": ["Normal", "Reversed1", "Reversed2", "Reversed3", "Reversed6", "Reverse"],
+    "wpmethod": ["Normal", "Reversed1", "Reversed2", "Reversed3", "Reversed6", "Reverse"],
     "rwpmethod": ["Random", "Linear", "Square", "Exponential"],
 }
 
