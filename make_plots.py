@@ -12,12 +12,14 @@ from aalpy.utils.FileHandler import load_automaton_from_file
 
 PROTOCOLS = ["tls", "mqtt", "tcp", "dtls"]
 
+
 def keep_successes(queries, failures):
     filtered = []
     for m in range(failures.shape[0]):
         valid = np.all(failures[m] == 0, axis=1)
         filtered.append(queries[m, valid, :])
     return filtered
+
 
 def compute_scores_nlr(queries, failures, qpr):
     successful = np.where(failures == 0, queries, np.nan)
@@ -42,9 +44,10 @@ def compute_scores_nlr(queries, failures, qpr):
     maxima = np.nanmax(averages, axis=1)
     s2_scores = np.sum(averages / maxima[:, np.newaxis], axis=0)
     # compute penalized s2 score by factoring in fails
-    fails = np.sum(np.mean(failures,axis=1), axis=0)
+    fails = np.sum(np.mean(failures, axis=1), axis=0)
     s2_scores_penalized = s2_scores + fails
     return (s1_scores, s1_prime, s2_scores, s2_scores_penalized)
+
 
 def compute_scores(queries, failures):
     successful = np.where(failures == 0, queries, np.nan)
@@ -59,7 +62,7 @@ def compute_scores(queries, failures):
     maxima = np.nanmax(averages, axis=1)
     s2_scores = np.sum(averages / maxima[:, np.newaxis], axis=0)
     # compute penalized s2 score by factoring in fails
-    fails = np.sum(np.mean(failures,axis=1), axis=0)
+    fails = np.sum(np.mean(failures, axis=1), axis=0)
     s2_scores_penalized = s2_scores + fails
     return (s1_scores, s2_scores, s2_scores_penalized)
 
@@ -94,37 +97,111 @@ def draw_plots(data, results_dir):
     plt.xlabel("Oracle", fontsize=12)
     plt.ylabel("Score", fontsize=12)
     maxdiff = max(melted["value"].max() - melted["value"].min(), 0.1)
-    plt.ylim(melted["value"].min() - 0.1 * maxdiff, melted["value"].max() + 0.1 * maxdiff)
+    plt.ylim(
+        melted["value"].min() - 0.1 * maxdiff, melted["value"].max() + 0.1 * maxdiff
+    )
     plt.tight_layout()
     plt.savefig(f"{results_dir}/s2_scores_together.pdf", format="pdf")
     plt.close()
-
+    if "S1_No_Last_Rounds" in data.columns and not np.all(
+        data["S1_No_Last_Rounds"] == 0
+    ):
+        new = pd.DataFrame(
+            {
+                "oracles": oracles,
+                "S1": data["S1"],
+                "S1 without last rounds": data["S1_No_Last_Rounds"]
+            }
+        )
+        
+        # Create figure and axis
+        fig, ax1 = plt.subplots(figsize=(8, 6))
+        
+        # Plot first bar chart
+        sns.barplot(x=new["oracles"], y=new["S1"], color='g', ax=ax1)
+        ax1.set_ylabel("S1", color='g')  # Set y-axis label color
+        ax1.tick_params(axis='y', colors='g')  # Set tick labels to green
+        maxdiff = new['S1'].max() - new['S1'].min()
+        bottom = new['S1'].min() - 0.1 * maxdiff
+        top = new['S1'].max() + 0.1 * maxdiff
+        ax1.set_ylim(bottom, top)
+        
+        # Create second y-axis
+        ax2 = ax1.twinx()
+        
+        # Plot second bar chart
+        sns.barplot(x=new["oracles"], y=new["S1 without last rounds"], color='b', ax=ax2, alpha=0.6, width=0.4)
+        ax2.set_ylabel("S1 without last rounds", color='b')  # Set y-axis label color
+        ax2.tick_params(axis='y', colors='b')  # Set tick labels to blue
+        maxdiff = new['S1 without last rounds'].max() - new['S1 without last rounds'].min()
+        bottom = new['S1 without last rounds'].min() - 0.1 * maxdiff
+        top = new['S1 without last rounds'].max() + 0.1 * maxdiff
+        ax2.set_ylim(bottom, top)
+        
+        # Title and save
+        plt.title("S1 Scores (zoomed)")
+        plt.savefig(f"{results_dir}/s1_scores_nlr.pdf", format="pdf")
+        plt.close()
 
 def make_plots(base_method, results_dir, protocols):
     if base_method == "state_coverage":
         oracles = ["Random", "Linear", "Quadratic", "Exponential"]
     elif base_method == "wmethod":
-        oracles = ["Normal", "Reversed1", "Reversed2", "Reversed3", "Reversed6", "Reverse"]
+        oracles = [
+            "Normal",
+            "Reversed1",
+            "Reversed2",
+            "Reversed3",
+            "Reversed6",
+            "Reverse",
+        ]
     elif base_method == "wpmethod":
-        oracles = ["Normal", "Reversed1", "Reversed2", "Reversed3", "Reversed6", "Reverse"]
+        oracles = [
+            "Normal",
+            "Reversed1",
+            "Reversed2",
+            "Reversed3",
+            "Reversed6",
+            "Reverse",
+        ]
     elif base_method == "rwpmethod":
         oracles = ["Normal", "Linear", "Quadratic", "Exponential"]
     else:
         oracles = [
-            ["Random", "Linear", "Quadratic", "Exponential"],       # state_coverage
-            ["Normal", "Reversed1", "Reversed2", "Reversed3", "Reversed6", "Reverse"], # wmethod
-            ["Normal", "Reversed1", "Reversed2", "Reversed3", "Reversed6", "Reverse"], # wpmethod
-            ["Random", "Linear", "Quadratic", "Exponential"],       # rwpmethod
+            ["Random", "Linear", "Quadratic", "Exponential"],  # state_coverage
+            [
+                "Normal",
+                "Reversed1",
+                "Reversed2",
+                "Reversed3",
+                "Reversed6",
+                "Reverse",
+            ],  # wmethod
+            [
+                "Normal",
+                "Reversed1",
+                "Reversed2",
+                "Reversed3",
+                "Reversed6",
+                "Reverse",
+            ],  # wpmethod
+            ["Random", "Linear", "Quadratic", "Exponential"],  # rwpmethod
         ]
     protocols = PROTOCOLS if protocols == "all" else [protocols]
     oracles = oracles if base_method == "all" else [oracles]
-    methods = ["state_coverage", "wmethod", "wpmethod", "rwpmethod"] if base_method == "all" else [base_method]
+    methods = (
+        ["state_coverage", "wmethod", "wpmethod", "rwpmethod"]
+        if base_method == "all"
+        else [base_method]
+    )
 
     for method, orcs in zip(methods, oracles):
         if protocols == ["combined"]:
             measurements = np.load(f"{results_dir}/{method}/eq_queries.npy")
             failures = np.load(f"{results_dir}/{method}/failures.npy")
-            (s1_scores, s2_scores, s2_scores_penalized) = compute_scores(measurements, failures)
+            (s1_scores, s2_scores, s2_scores_penalized) = compute_scores(
+                measurements, failures
+            )
             scores = np.array([s1_scores, s2_scores, s2_scores_penalized]).T
             df = pd.DataFrame(scores, columns=["S1", "S2", "S2_Penalized"], index=orcs)
             draw_plots(df, f"{results_dir}/{method}")
@@ -137,33 +214,45 @@ def make_plots(base_method, results_dir, protocols):
             measurements = np.load(f"{curdir}/eq_queries.npy")
             failures = np.load(f"{curdir}/failures.npy")
             qpr = np.load(f"{curdir}/queries_per_round.npy", allow_pickle=True)
-            (s1_scores, s1_prime, s2_scores, s2_scores_penalized) = compute_scores_nlr(measurements, failures, qpr)
+            (s1_scores, s1_prime, s2_scores, s2_scores_penalized) = compute_scores_nlr(
+                measurements, failures, qpr
+            )
             scores = np.array([s1_scores, s1_prime, s2_scores, s2_scores_penalized]).T
-            df = pd.DataFrame(scores, columns=["S1", "S1_No_Last_Rounds", "S2", "S2_Penalized"], index=orcs)
+            df = pd.DataFrame(
+                scores,
+                columns=["S1", "S1_No_Last_Rounds", "S2", "S2_Penalized"],
+                index=orcs,
+            )
             draw_plots(df, curdir)
             if protocol == "DTLS":
                 # more size-specific results
                 modeldir = pathlib.Path("./DotModels/DTLS")
                 files = list(modeldir.iterdir())
-                models = [load_automaton_from_file(f, 'mealy') for f in files]
+                models = [load_automaton_from_file(f, "mealy") for f in files]
                 sizes = [m.size for m in models]
                 # order which experiments were run in
                 indexed = sorted(list(enumerate(sizes)), key=lambda x: x[1])
                 groups = itertools.groupby(indexed, key=lambda x: x[1] // 20)
                 for k, group in groups:
-                    id = (k * 20, (k+1) * 20)
+                    id = (k * 20, (k + 1) * 20)
                     indices = np.array(list(map(lambda x: x[0], group)))
-                    print(id, indices)
                     ms = measurements[indices]
                     fs = failures[indices]
                     qprs = qpr[indices]
-                    (s1_scores, s1_prime, s2_scores, s2_scores_penalized) = compute_scores_nlr(ms, fs, qprs)
-                    scores = np.array([s1_scores, s1_prime, s2_scores, s2_scores_penalized]).T
-                    df = pd.DataFrame(scores, columns=["S1", "S1_No_Last_Rounds", "S2", "S2_Penalized"], index=orcs)
-                    if not os.path.exists(f'{curdir}/sizes_{id[0]}_{id[1]}'):
-                        os.makedirs(f'{curdir}/sizes_{id[0]}_{id[1]}')
-                    draw_plots(df, f'{curdir}/sizes_{id[0]}_{id[1]}')
-
+                    (s1_scores, s1_prime, s2_scores, s2_scores_penalized) = (
+                        compute_scores_nlr(ms, fs, qprs)
+                    )
+                    scores = np.array(
+                        [s1_scores, s1_prime, s2_scores, s2_scores_penalized]
+                    ).T
+                    df = pd.DataFrame(
+                        scores,
+                        columns=["S1", "S1_No_Last_Rounds", "S2", "S2_Penalized"],
+                        index=orcs,
+                    )
+                    if not os.path.exists(f"{curdir}/sizes_{id[0]}_{id[1]}"):
+                        os.makedirs(f"{curdir}/sizes_{id[0]}_{id[1]}")
+                    draw_plots(df, f"{curdir}/sizes_{id[0]}_{id[1]}")
 
 
 if __name__ == "__main__":
