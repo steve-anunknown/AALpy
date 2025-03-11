@@ -5,7 +5,7 @@ from sklearn.cluster import KMeans
 from sklearn.preprocessing import StandardScaler
 
 # Load dataset
-df = pd.read_csv("for_gpt.csv")
+df = pd.read_csv("model_data.csv")
 
 # Drop unnecessary column if present
 df = df.drop(columns=["Unnamed: 0"], errors='ignore')
