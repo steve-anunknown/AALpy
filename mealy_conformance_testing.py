@@ -17,7 +17,7 @@ from aalpy.oracles.WMethodEqOracle import (
 from aalpy.oracles.WpMethodEqOracle import (
     WpMethodEqOracle,
     WpMethodDiffFirstEqOracle,
-    WpMethodTSDiffEqOracle,
+    WpMethodReversedEqOracle,
     StochasticWpMethodEqOracle,
 )
 from aalpy.oracles.StochasticStateCoverageEqOracle import (
@@ -201,10 +201,10 @@ def do_learning_experiments(model, prot, trial):
         max_size = model.size + 2
         eq_oracles = [
             WpMethod(alphabet, suls[0], max_size),
-            WpMethodTSDiff1(alphabet, suls[1], max_size),
-            WpMethodTSDiff2(alphabet, suls[2], max_size),
-            WpMethodTSDiff3(alphabet, suls[3], max_size),
-            WpMethodTSDiff6(alphabet, suls[4], max_size),
+            WpMethodReversed1(alphabet, suls[1], max_size),
+            WpMethodReversed2(alphabet, suls[2], max_size),
+            WpMethodReversed3(alphabet, suls[3], max_size),
+            WpMethodReversed6(alphabet, suls[4], max_size),
             WpMethodDiffFirst(alphabet, suls[5], max_size),
         ]
     else:
@@ -497,19 +497,19 @@ if __name__ == "__main__":
             def __init__(self, alphabet, sul, max_model_size):
                 super().__init__(alphabet, sul, max_model_size)
 
-        class WpMethodTSDiff1(WpMethodTSDiffEqOracle):
+        class WpMethodReversed1(WpMethodReversedEqOracle):
             def __init__(self, alphabet, sul, max_model_size, diff_depth=1):
                 super().__init__(alphabet, sul, max_model_size, diff_depth)
 
-        class WpMethodTSDiff2(WpMethodTSDiffEqOracle):
+        class WpMethodReversed2(WpMethodReversedEqOracle):
             def __init__(self, alphabet, sul, max_model_size, diff_depth=2):
                 super().__init__(alphabet, sul, max_model_size, diff_depth)
 
-        class WpMethodTSDiff3(WpMethodTSDiffEqOracle):
+        class WpMethodReversed3(WpMethodReversedEqOracle):
             def __init__(self, alphabet, sul, max_model_size, diff_depth=3):
                 super().__init__(alphabet, sul, max_model_size, diff_depth)
 
-        class WpMethodTSDiff6(WpMethodTSDiffEqOracle):
+        class WpMethodReversed6(WpMethodReversedEqOracle):
             def __init__(self, alphabet, sul, max_model_size, diff_depth=6):
                 super().__init__(alphabet, sul, max_model_size, diff_depth)
 

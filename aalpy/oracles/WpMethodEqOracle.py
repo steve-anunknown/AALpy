@@ -114,7 +114,7 @@ class WpMethodEqOracle(Oracle):
         return None
 
 
-class WpMethodTSDiffEqOracle(Oracle):
+class WpMethodReversedEqOracle(Oracle):
     """
     Implements the Wp-method equivalence oracle, but with a twist. In each equivalence query,
     it retains the previous test suite, calculates the current one and first executes the
