@@ -140,7 +140,7 @@ class WMethodReversedEqOracle(Oracle):
         return None
 
 
-class WMethodTSDiffEqOracle(Oracle):
+class WMethodFirstNYoungestEqOracle(Oracle):
 
     def __init__(self, alphabet: list, sul: SUL, max_number_of_states=4, diff_depth=1):
         """
