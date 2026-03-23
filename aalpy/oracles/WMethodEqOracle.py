@@ -80,7 +80,7 @@ class WMethodEqOracle(Oracle):
         return None
 
 
-class WMethodDiffFirstEqOracle(Oracle):
+class WMethodReversedEqOracle(Oracle):
 
     def __init__(self, alphabet: list, sul: SUL, max_number_of_states=4):
         """

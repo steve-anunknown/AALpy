@@ -11,7 +11,7 @@ import argparse
 
 from aalpy.oracles.WMethodEqOracle import (
     WMethodEqOracle,
-    WMethodDiffFirstEqOracle,
+    WMethodReversedEqOracle,
     WMethodTSDiffEqOracle,
 )
 from aalpy.oracles.WpMethodEqOracle import (
@@ -195,7 +195,7 @@ def do_learning_experiments(model, prot, trial):
             WMethodTSDiff2(alphabet, suls[2], max_size),
             WMethodTSDiff3(alphabet, suls[3], max_size),
             WMethodTSDiff6(alphabet, suls[4], max_size),
-            WMethodDiffFirst(alphabet, suls[5], max_size),
+            WMethodReversed(alphabet, suls[5], max_size),
         ]
     elif BASE_METHOD == "wpmethod":
         max_size = model.size + 2
@@ -466,7 +466,7 @@ if __name__ == "__main__":
             def __init__(self, alphabet, sul, max_model_size):
                 super().__init__(alphabet, sul, max_model_size)
 
-        class WMethodDiffFirst(WMethodDiffFirstEqOracle):
+        class WMethodReversed(WMethodReversedEqOracle):
             def __init__(self, alphabet, sul, max_model_size):
                 super().__init__(alphabet, sul, max_model_size)
 
